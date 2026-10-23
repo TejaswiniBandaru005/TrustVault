@@ -1,14 +1,14 @@
-
 import { useState } from "react";
 import { ShieldCheck, ArrowRight, LockKeyhole } from "lucide-react";
+import { apiRequest } from "../api";
 
 function Register({ role, onNavigate }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const roles = {
     viewer: "Viewer",
@@ -16,13 +16,14 @@ function Register({ role, onNavigate }) {
     admin: "Administrator",
   };
 
-  const approval = {
-    viewer: "Your account request will require administrator approval.",
-    owner: "Your account request will require administrator approval.",
-    admin: "An existing administrator must approve your request.",
+  const registrationMessage = {
+    viewer: "Your Viewer registration requires Administrator approval before full document access is enabled.",
+    owner: "Your Document Owner registration requires Administrator approval before file management is enabled.",
+    admin: "Administrator accounts cannot be self-registered.",
   };
+  const canRegister = role !== "admin";
 
-  const submitRegistration = (event) => {
+  const submitRegistration = async (event) => {
     event.preventDefault();
     setMessage("");
 
@@ -31,13 +32,33 @@ function Register({ role, onNavigate }) {
       return;
     }
 
-    onNavigate("pending");
+    setIsSubmitting(true);
+    try {
+      await apiRequest("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          role: role.toUpperCase(),
+        }),
+      });
+      // Transition directly to Pending Approval screen with user data
+      onNavigate("pending", {
+        email: email.trim(),
+        role: role.toLowerCase(),
+        fullName: fullName.trim(),
+      });
+    } catch (error) {
+      setMessage(error.message || "Cannot connect to the TrustVault backend.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <button className="back-link" onClick={() => onNavigate("home")}>
+        <button type="button" className="back-link" onClick={() => onNavigate("home")}>
           ← Back to TrustVault
         </button>
 
@@ -47,13 +68,15 @@ function Register({ role, onNavigate }) {
 
         <h1>Create your account</h1>
         <p className="auth-description">
-          Request an account to access the TrustVault workspace.
+          Register to join the TrustVault secure document workspace.
         </p>
 
         <div className="selected-role-note">
-          <span>Requested role</span>
-          <strong>{roles[role] || roles.viewer}</strong>
-          <button onClick={() => onNavigate("home")}>Change</button>
+          <div>
+            <span>Requested role</span>
+            <strong>{roles[role] || roles.viewer}</strong>
+          </div>
+          <button type="button" onClick={() => onNavigate("home")}>Change</button>
         </div>
 
         <form className="auth-form" onSubmit={submitRegistration}>
@@ -81,24 +104,12 @@ function Register({ role, onNavigate }) {
           </label>
 
           <label>
-            Phone number
-            <input
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="Enter phone number"
-              autoComplete="tel"
-              required
-            />
-          </label>
-
-          <label>
             Password
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Create a password"
+              placeholder="Create a password (min 8 characters)"
               autoComplete="new-password"
               minLength={8}
               required
@@ -119,12 +130,20 @@ function Register({ role, onNavigate }) {
           </label>
 
           <div className="form-notice">
-            {approval[role] || approval.viewer}
-            {" "}Email verification and approval will be enforced by the backend.
+            {registrationMessage[role] || registrationMessage.viewer}
           </div>
 
-          <button className="button button-primary auth-submit" type="submit">
-            Submit registration request <ArrowRight size={18} />
+          <button
+            className="button button-primary auth-submit"
+            type="submit"
+            disabled={!canRegister || isSubmitting}
+          >
+            {isSubmitting
+              ? "Creating account..."
+              : canRegister
+              ? "Register Account"
+              : "Administrator registration unavailable"}
+            {canRegister && <ArrowRight size={18} />}
           </button>
         </form>
 
@@ -136,12 +155,12 @@ function Register({ role, onNavigate }) {
 
         <div className="auth-switch">
           Already registered?{" "}
-          <button onClick={() => onNavigate("login")}>Sign in</button>
+          <button type="button" onClick={() => onNavigate("login")}>Sign in</button>
         </div>
 
         <div className="auth-security-note">
           <LockKeyhole size={16} />
-          <span>Registration demo · Account creation is not connected</span>
+          <span>Registration is encrypted and handled by the TrustVault server</span>
         </div>
       </section>
     </main>

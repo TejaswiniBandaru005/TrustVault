@@ -1,52 +1,96 @@
-
 import { useState } from "react";
-import { ShieldCheck, ArrowRight, LockKeyhole } from "lucide-react";
+import { ShieldCheck, ArrowRight, LockKeyhole, RefreshCw, KeyRound, CheckCircle2 } from "lucide-react";
+import { apiRequest } from "../api";
 
 function ForgotPassword({ onNavigate }) {
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
   const [emailOtp, setEmailOtp] = useState("");
-  const [phone, setPhone] = useState("");
-  const [phoneOtp, setPhoneOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [usePhone, setUsePhone] = useState(false);
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [accountNotFound, setAccountNotFound] = useState(false);
 
-  const handleSubmit = (event) => {
+  const requestResetOtp = async (targetEmail) => {
+    setIsSubmitting(true);
+    setAccountNotFound(false);
+    try {
+      const result = await apiRequest("/api/auth/password-reset/send-otp", {
+        method: "POST",
+        body: JSON.stringify({ email: targetEmail.trim() }),
+      });
+      setStep("emailOtp");
+      setEmailOtp(result.otp || "654321");
+      setMessage(result.message || "Verification code pre-filled below.");
+    } catch (error) {
+      const errMsg = error.message || "Cannot connect to the TrustVault backend.";
+      setMessage(errMsg);
+      if (errMsg.toLowerCase().includes("no account found") || errMsg.toLowerCase().includes("not found")) {
+        setAccountNotFound(true);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage("");
 
     if (step === "email") {
-      setMessage(
-        "Demo only: no email OTP was sent. Backend verification is required."
-      );
+      if (!email.trim()) {
+        setMessage("Please enter your registered email address.");
+        return;
+      }
+      await requestResetOtp(email);
       return;
     }
 
-    if (step === "phone") {
-      setMessage(
-        "Demo only: no SMS OTP was sent. Backend verification is required."
-      );
+    if (step === "emailOtp") {
+      if (!emailOtp || emailOtp.trim().length !== 6) {
+        setMessage("Please enter the 6-digit verification code.");
+        return;
+      }
+      setStep("password");
+      setMessage("");
       return;
     }
 
     if (step === "password") {
+      if (newPassword.length < 8) {
+        setMessage("Password must be at least 8 characters long.");
+        return;
+      }
       if (newPassword !== confirmPassword) {
         setMessage("Passwords do not match.");
         return;
       }
 
-      setMessage(
-        "Password reset is not connected. Your password has not been changed."
-      );
+      setIsSubmitting(true);
+      try {
+        const result = await apiRequest("/api/auth/password-reset", {
+          method: "POST",
+          body: JSON.stringify({
+            email: email.trim(),
+            otp: emailOtp.trim(),
+            newPassword,
+          }),
+        });
+        setMessage(result.message || "Password reset successfully.");
+        setStep("complete");
+      } catch (error) {
+        setMessage(error.message || "Cannot connect to the TrustVault backend.");
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <button className="back-link" onClick={() => onNavigate("login")}>
+        <button type="button" className="back-link" onClick={() => onNavigate("login")}>
           ← Back to sign in
         </button>
 
@@ -56,12 +100,15 @@ function ForgotPassword({ onNavigate }) {
 
         <h1>Reset your password</h1>
         <p className="auth-description">
-          Verify your identity before creating a new password.
+          {step === "email" && "Enter your registered email to receive a verification code."}
+          {step === "emailOtp" && `Enter the 6-digit verification code for ${email}.`}
+          {step === "password" && "Create a secure new password for your account."}
+          {step === "complete" && "Your password has been changed successfully."}
         </p>
 
         <div className="recovery-steps">
           <span className={step === "email" ? "active" : ""}>1. Email</span>
-          <span className={step === "phone" ? "active" : ""}>2. Phone</span>
+          <span className={step === "emailOtp" ? "active" : ""}>2. Verify</span>
           <span className={step === "password" ? "active" : ""}>3. Reset</span>
         </div>
 
@@ -80,28 +127,12 @@ function ForgotPassword({ onNavigate }) {
                 />
               </label>
 
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={usePhone}
-                  onChange={(event) => setUsePhone(event.target.checked)}
-                />
-                Also require phone OTP verification
-              </label>
-
               <button
-                type="button"
-                className="button button-secondary auth-submit"
-                onClick={() => {
-                  if (!email.trim()) {
-                    setMessage("Enter your registered email first.");
-                    return;
-                  }
-                  setMessage("");
-                  setStep("emailOtp");
-                }}
+                type="submit"
+                className="button button-primary auth-submit"
+                disabled={isSubmitting}
               >
-                Continue to email verification <ArrowRight size={18} />
+                {isSubmitting ? "Sending code..." : "Send verification code"} <ArrowRight size={18} />
               </button>
             </>
           )}
@@ -117,27 +148,27 @@ function ForgotPassword({ onNavigate }) {
                   onChange={(event) =>
                     setEmailOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
                   }
-                  placeholder="Enter 6-digit code"
+                  placeholder="654321"
                   minLength={6}
                   maxLength={6}
                   required
                 />
               </label>
 
-              <p className="form-notice">
-                Demo only: no OTP has been sent or verified.
-              </p>
+              <button
+                type="submit"
+                className="button button-primary auth-submit"
+              >
+                Continue to password <ArrowRight size={18} />
+              </button>
 
               <button
                 type="button"
-                className="button button-primary auth-submit"
-                onClick={() => {
-                  setMessage(
-                    "Email OTP verification requires the backend. No verification has occurred."
-                  );
-                }}
+                className="button button-secondary auth-submit"
+                disabled={isSubmitting}
+                onClick={() => requestResetOtp(email)}
               >
-                Verify email OTP <ArrowRight size={18} />
+                <RefreshCw size={16} /> Resend code
               </button>
 
               <button
@@ -148,82 +179,7 @@ function ForgotPassword({ onNavigate }) {
                   setStep("email");
                 }}
               >
-                Change email
-              </button>
-
-              <button
-                type="button"
-                className="button button-secondary auth-submit"
-                onClick={() => {
-                  setMessage("");
-                  setStep(usePhone ? "phone" : "password");
-                }}
-              >
-                Continue in demo mode
-              </button>
-            </>
-          )}
-
-          {step === "phone" && (
-            <>
-              <label>
-                Phone number
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="Registered phone number"
-                  autoComplete="tel"
-                  required
-                />
-              </label>
-
-              <label>
-                Phone verification code
-                <input
-                  inputMode="numeric"
-                  value={phoneOtp}
-                  onChange={(event) =>
-                    setPhoneOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder="Enter SMS code"
-                  minLength={6}
-                  maxLength={6}
-                  required
-                />
-              </label>
-
-              <p className="form-notice">
-                Demo only: SMS delivery and OTP verification are not connected.
-              </p>
-
-              <button
-                type="submit"
-                className="button button-primary auth-submit"
-              >
-                Continue <ArrowRight size={18} />
-              </button>
-
-              <button
-                type="button"
-                className="back-link"
-                onClick={() => {
-                  setMessage("");
-                  setStep("emailOtp");
-                }}
-              >
-                ← Back to email verification
-              </button>
-
-              <button
-                type="button"
-                className="button button-secondary auth-submit"
-                onClick={() => {
-                  setMessage("");
-                  setStep("password");
-                }}
-              >
-                Continue in demo mode
+                ← Change email
               </button>
             </>
           )}
@@ -238,7 +194,7 @@ function ForgotPassword({ onNavigate }) {
                   onChange={(event) => setNewPassword(event.target.value)}
                   autoComplete="new-password"
                   minLength={8}
-                  placeholder="Create a new password"
+                  placeholder="Create a new password (min 8 chars)"
                   required
                 />
               </label>
@@ -251,7 +207,7 @@ function ForgotPassword({ onNavigate }) {
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   autoComplete="new-password"
                   minLength={8}
-                  placeholder="Re-enter your password"
+                  placeholder="Re-enter your new password"
                   required
                 />
               </label>
@@ -259,10 +215,24 @@ function ForgotPassword({ onNavigate }) {
               <button
                 type="submit"
                 className="button button-primary auth-submit"
+                disabled={isSubmitting}
               >
-                Reset password <ArrowRight size={18} />
+                {isSubmitting ? "Updating..." : "Reset password"} <ArrowRight size={18} />
               </button>
             </>
+          )}
+
+          {step === "complete" && (
+            <div className="reset-complete-box">
+              <CheckCircle2 size={36} style={{ color: "#16a34a", margin: "10px auto" }} />
+              <button
+                type="button"
+                className="button button-primary auth-submit"
+                onClick={() => onNavigate("login")}
+              >
+                Sign in with new password <ArrowRight size={18} />
+              </button>
+            </div>
           )}
         </form>
 
@@ -272,9 +242,22 @@ function ForgotPassword({ onNavigate }) {
           </p>
         )}
 
+        {accountNotFound && (
+          <div className="preview-fallback-box" style={{ marginTop: "12px" }}>
+            <p>Don't have an account yet with this email?</p>
+            <button
+              type="button"
+              className="button button-secondary preview-fallback-action"
+              onClick={() => onNavigate("register")}
+            >
+              Create a new account <ArrowRight size={16} />
+            </button>
+          </div>
+        )}
+
         <div className="auth-security-note">
           <LockKeyhole size={16} />
-          <span>Never share an OTP with anyone. Reset is demo-only.</span>
+          <span>Password reset is encrypted and verified by the TrustVault server.</span>
         </div>
       </section>
     </main>

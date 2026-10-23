@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ShieldCheck,
   Eye,
@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
 import "./App.css";
 import Login from "./pages/Login";
@@ -23,7 +24,7 @@ import PendingApproval from "./pages/PendingApproval";
 import ViewerDashboard from "./pages/ViewerDashboard";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
-
+import { apiRequest } from "./api";
 
 const roles = [
   {
@@ -51,33 +52,185 @@ const roles = [
 
 function App() {
   const [theme, setTheme] = useState("light");
-  const [selectedRole, setSelectedRole] = useState("viewer");
-  const [page, setPage] = useState("home");
+  
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem("trustvault_user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [selectedRole, setSelectedRole] = useState(() => {
+    try {
+      return localStorage.getItem("trustvault_role") || "viewer";
+    } catch {
+      return "viewer";
+    }
+  });
+
+  const [page, setPage] = useState(() => {
+    try {
+      const savedPage = localStorage.getItem("trustvault_page");
+      const rawUser = localStorage.getItem("trustvault_user");
+      const user = rawUser ? JSON.parse(rawUser) : null;
+      if (savedPage) {
+        if (["admin", "owner", "viewer"].includes(savedPage) && !user) {
+          return "login";
+        }
+        return savedPage;
+      }
+      if (user) {
+        const r = (user.role || "").toUpperCase();
+        return r === "ADMIN" ? "admin" : r === "OWNER" ? "owner" : "viewer";
+      }
+      return "home";
+    } catch {
+      return "home";
+    }
+  });
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [serverStatus, setServerStatus] = useState("checking");
+  const [pendingUserData, setPendingUserData] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem("trustvault_pending_user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem("trustvault_user", JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem("trustvault_user");
+      }
+    } catch (e) {
+      console.warn("localStorage user error", e);
+    }
+  }, [currentUser]);
 
-  const changePage = (nextPage) => {
+  useEffect(() => {
+    try {
+      localStorage.setItem("trustvault_page", page);
+    } catch (e) {
+      console.warn("localStorage page error", e);
+    }
+  }, [page]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("trustvault_role", selectedRole);
+    } catch (e) {
+      console.warn("localStorage role error", e);
+    }
+  }, [selectedRole]);
+
+  const changePage = (nextPage, data = null) => {
+    if (data) {
+      setPendingUserData(data);
+      try {
+        sessionStorage.setItem("trustvault_pending_user", JSON.stringify(data));
+      } catch (e) {}
+    }
     setPage(nextPage);
     setMobileMenuOpen(false);
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
+  useEffect(() => {
+    let isActive = true;
 
-    alert(
-      "Frontend demo only. Authentication and account approval will be connected to the secure backend in a later step."
-    );
+    apiRequest("/api/health")
+      .then(() => {
+        if (isActive) setServerStatus("online");
+      })
+      .catch(() => {
+        if (isActive) setServerStatus("offline");
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const handleAuthenticated = (user) => {
+    const nextPage = {
+      ADMIN: "admin",
+      OWNER: "owner",
+      VIEWER: "viewer",
+    }[user.role?.toUpperCase()];
+
+    if (!nextPage) {
+      throw new Error("The server returned an unsupported account role.");
+    }
+
+    setCurrentUser(user);
+    setSelectedRole(nextPage);
+    changePage(nextPage);
+  };
+
+  const handlePreviewLogin = (role, email = "") => {
+    const normRole = (role || "viewer").toUpperCase();
+    const dest = {
+      ADMIN: "admin",
+      OWNER: "owner",
+      VIEWER: "viewer",
+    }[normRole] || "viewer";
+
+    const previewUser = {
+      email: email || `guest-${dest}@trustvault.local`,
+      userCode: "TV-USR-PREVIEW",
+      role: normRole,
+      status: "PENDING_APPROVAL",
+      isPreview: true,
+      isPendingApproval: true,
+    };
+
+    setCurrentUser(previewUser);
+    setSelectedRole(dest);
+    changePage(dest);
+  };
+
+  const handleSignOut = () => {
+    if (currentUser?.email) {
+      apiRequest("/api/auth/logout", {
+        method: "POST",
+        body: JSON.stringify({ email: currentUser.email }),
+      }).catch(() => {});
+    }
+    try {
+      localStorage.removeItem("trustvault_user");
+      localStorage.setItem("trustvault_page", "home");
+      localStorage.setItem("trustvault_role", "viewer");
+      sessionStorage.removeItem("trustvault_pending_user");
+    } catch (e) {}
+    setCurrentUser(null);
+    setSelectedRole("viewer");
+    changePage("home");
   };
 
   return (
     <div className={`app ${theme}`}>
       <header className="navbar">
         <button
+          type="button"
           className="brand"
-          onClick={() => changePage("home")}
+          onClick={() => {
+            if (currentUser) {
+              const dash = {
+                ADMIN: "admin",
+                OWNER: "owner",
+                VIEWER: "viewer",
+              }[currentUser.role?.toUpperCase()] || "home";
+              changePage(dash);
+            } else {
+              changePage("home");
+            }
+          }}
           aria-label="TrustVault home"
         >
           <span className="brand-icon">
@@ -90,6 +243,7 @@ function App() {
         </button>
 
         <button
+          type="button"
           className="mobile-menu-button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label="Toggle navigation"
@@ -98,18 +252,57 @@ function App() {
         </button>
 
         <nav className={`nav-actions ${mobileMenuOpen ? "nav-open" : ""}`}>
-          <button className="nav-link" onClick={() => changePage("home")}>
-            Home
-          </button>
+          {!currentUser ? (
+            <>
+              <button type="button" className="nav-link" onClick={() => changePage("home")}>
+                Home
+              </button>
+
+              <button
+                type="button"
+                className="nav-link"
+                onClick={() => changePage("login")}
+              >
+                Sign in
+              </button>
+
+              <button
+                type="button"
+                className="button button-primary nav-register"
+                onClick={() => changePage("register")}
+              >
+                Get started <ArrowRight size={16} />
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Designated role textbox & distinct Worker Unique ID */}
+              <div className="navbar-role-box">
+                <span>
+                  {(currentUser.role || "").toUpperCase() === "ADMIN"
+                    ? "TrustVault - Admin"
+                    : (currentUser.role || "").toUpperCase() === "OWNER"
+                    ? "TrustVault - Owner"
+                    : "TrustVault - Viewer"}
+                </span>
+                {currentUser.userCode && (
+                  <span className="navbar-id-pill">{currentUser.userCode}</span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="nav-link nav-signout"
+                onClick={handleSignOut}
+              >
+                <LogOut size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: "5px" }} />
+                {currentUser.isPreview ? "Exit Preview" : "Sign out"}
+              </button>
+            </>
+          )}
 
           <button
-            className="nav-link"
-            onClick={() => changePage("login")}
-          >
-            Sign in
-          </button>
-
-          <button
+            type="button"
             className="theme-toggle"
             onClick={() =>
               setTheme(theme === "light" ? "dark" : "light")
@@ -119,15 +312,30 @@ function App() {
           >
             {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
           </button>
-
-          <button
-            className="button button-primary nav-register"
-            onClick={() => changePage("register")}
-          >
-            Get started <ArrowRight size={16} />
-          </button>
         </nav>
       </header>
+
+      {/* Global Preview Mode Alert Banner */}
+      {currentUser?.isPreview && (
+        <aside className="preview-global-banner" role="status">
+          <div className="preview-banner-content">
+            <Eye size={18} />
+            <span>
+              <strong>Preview Mode:</strong>{" "}
+              {currentUser.isPendingApproval
+                ? "Your account is awaiting Administrator approval. You are exploring TrustVault in clean Preview Mode."
+                : "You are exploring this workspace in Preview Mode. Real changes require an active approved account."}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="preview-banner-close-btn"
+            onClick={handleSignOut}
+          >
+            Exit Preview
+          </button>
+        </aside>
+      )}
 
       {page === "home" ? (
         <main>
@@ -152,6 +360,7 @@ function App() {
 
               <div className="hero-buttons">
                 <button
+                  type="button"
                   className="button button-primary button-large"
                   onClick={() =>
                     document
@@ -162,12 +371,31 @@ function App() {
                   Explore TrustVault <ArrowRight size={18} />
                 </button>
 
-                <button
-                  className="button button-secondary button-large"
-                  onClick={() => changePage("login")}
-                >
-                  Sign in to your account
-                </button>
+                {currentUser ? (
+                  <button
+                    type="button"
+                    className="button button-secondary button-large"
+                    onClick={() =>
+                      changePage(
+                        {
+                          ADMIN: "admin",
+                          OWNER: "owner",
+                          VIEWER: "viewer",
+                        }[currentUser.role] || "home"
+                      )
+                    }
+                  >
+                    Open your dashboard <ArrowRight size={18} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="button button-secondary button-large"
+                    onClick={() => changePage("login")}
+                  >
+                    Sign in to your account
+                  </button>
+                )}
               </div>
 
               <div className="hero-trust">
@@ -193,7 +421,11 @@ function App() {
                     <p>Document access control</p>
                   </div>
                   <span className="live-indicator">
-                    <span /> DEMO
+                    <span /> {serverStatus === "checking"
+                      ? "CONNECTING"
+                      : serverStatus === "online"
+                        ? "SERVER ONLINE"
+                        : "SERVER OFFLINE"}
                   </span>
                 </div>
 
@@ -290,6 +522,7 @@ function App() {
                 return (
                   <button
                     key={role.id}
+                    type="button"
                     className={`role-card ${isSelected ? "selected" : ""}`}
                     onClick={() => setSelectedRole(role.id)}
                     aria-pressed={isSelected}
@@ -333,10 +566,23 @@ function App() {
               </div>
 
               <button
+                type="button"
                 className="button button-primary button-large"
-                onClick={() => changePage("login")}
+                onClick={() => {
+                  if (currentUser) {
+                    changePage(
+                      {
+                        ADMIN: "admin",
+                        OWNER: "owner",
+                        VIEWER: "viewer",
+                      }[currentUser.role] || "home"
+                    );
+                  } else {
+                    changePage("login");
+                  }
+                }}
               >
-                Continue to sign in <ArrowRight size={18} />
+                {currentUser ? "Open your dashboard" : "Continue to sign in"} <ArrowRight size={18} />
               </button>
             </div>
           </section>
@@ -390,7 +636,9 @@ function App() {
       ) : page === "login" ? (
         <Login
           role={selectedRole}
+          initialEmail={pendingUserData?.email}
           onNavigate={changePage}
+          onAuthenticated={handleAuthenticated}
         />
       ) : page === "register" ? (
         <Register
@@ -404,27 +652,34 @@ function App() {
       ) : page === "viewer" ? (
         <ViewerDashboard
           theme={theme}
-          onNavigate={changePage}
+          currentUser={currentUser}
+          onNavigate={(dest) => (dest === "home" ? handleSignOut() : changePage(dest))}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         />
-        ) : page === "owner" ? (
-          <OwnerDashboard
-            theme={theme}
-            onNavigate={changePage}
-            onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
-          />
+      ) : page === "owner" ? (
+        <OwnerDashboard
+          theme={theme}
+          currentUser={currentUser}
+          onNavigate={(dest) => (dest === "home" ? handleSignOut() : changePage(dest))}
+          onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+        />
       ) : page === "admin" ? (
         <AdminDashboard
           theme={theme}
-          onNavigate={changePage}
+          currentUser={currentUser}
+          onNavigate={(dest) => (dest === "home" ? handleSignOut() : changePage(dest))}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         />
       ) : (
-        <PendingApproval onNavigate={changePage} />
+        <PendingApproval
+          pendingData={pendingUserData}
+          onNavigate={changePage}
+          onPreview={handlePreviewLogin}
+        />
       )}
 
       <footer className="footer">
-        <button className="footer-brand" onClick={() => changePage("home")}>
+        <button type="button" className="footer-brand" onClick={() => changePage("home")}>
           <ShieldCheck size={19} />
           TrustVault
         </button>
@@ -432,7 +687,6 @@ function App() {
         <span>© {new Date().getFullYear()} TrustVault</span>
       </footer>
     </div>
-    
   );
 }
 

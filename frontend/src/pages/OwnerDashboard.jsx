@@ -26,7 +26,13 @@ import {
   Menu,
   X as CloseIcon,
   LockKeyhole,
+  ExternalLink,
 } from "lucide-react";
+import {
+  downloadRealDocument,
+  openDocumentInNewTab,
+  generateDocumentText,
+} from "../utils/documentContent";
 
 const initialDocuments = [
   {
@@ -144,6 +150,7 @@ export default function OwnerDashboard({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [readerTab, setReaderTab] = useState("content");
   const [uploadName, setUploadName] = useState("");
   const [uploadCategory, setUploadCategory] = useState("Business");
   const [uploadType, setUploadType] = useState("PDF");
@@ -961,7 +968,7 @@ export default function OwnerDashboard({
           onClick={() => setSelectedDocument(null)}
         >
           <section
-            className="od-modal"
+            className="od-modal od-modal-expanded"
             role="dialog"
             aria-modal="true"
             aria-labelledby="od-modal-title"
@@ -969,7 +976,7 @@ export default function OwnerDashboard({
           >
             <div className="od-modal-heading">
               <div>
-                <span className="od-eyebrow">DOCUMENT DETAILS</span>
+                <span className="od-eyebrow">OWNER DOCUMENT ENCLAVE</span>
                 <h2 id="od-modal-title">{selectedDocument.name}</h2>
               </div>
               <button
@@ -981,26 +988,75 @@ export default function OwnerDashboard({
               </button>
             </div>
 
-            <div className="od-metadata-list">
-              <div><span>Category</span><strong>{selectedDocument.category}</strong></div>
-              <div><span>File type</span><strong>{selectedDocument.type}</strong></div>
-              <div><span>Size</span><strong>{selectedDocument.size}</strong></div>
-              <div><span>Last updated</span><strong>{selectedDocument.updated}</strong></div>
-              <div><span>Viewer count</span><strong>{selectedDocument.viewers}</strong></div>
+            <div className="vd-reader-tabs">
+              <button
+                type="button"
+                className={`vd-reader-tab-btn ${readerTab === "content" ? "active" : ""}`}
+                onClick={() => setReaderTab("content")}
+              >
+                <Eye size={15} /> Document Content & Text
+              </button>
+              <button
+                type="button"
+                className={`vd-reader-tab-btn ${readerTab === "metadata" ? "active" : ""}`}
+                onClick={() => setReaderTab("metadata")}
+              >
+                <ShieldCheck size={15} /> Security & Metadata
+              </button>
             </div>
 
-            <div className="od-modal-note">
-              <Eye size={17} />
-              This preview displays metadata only. Real document viewing and
-              replacement will require secure backend endpoints.
-            </div>
+            {readerTab === "content" ? (
+              <div className="vd-reader-pane">
+                <div className="vd-reader-banner">
+                  <ShieldCheck size={16} />
+                  <span>Document Owner Verified Clearance · Full Permissions</span>
+                </div>
+                <pre className="vd-file-content-box">
+                  {generateDocumentText(selectedDocument)}
+                </pre>
+              </div>
+            ) : (
+              <div className="od-metadata-list">
+                <div><span>Document Name</span><strong>{selectedDocument.name}</strong></div>
+                <div><span>Category</span><strong>{selectedDocument.category}</strong></div>
+                <div><span>File type</span><strong>{selectedDocument.type}</strong></div>
+                <div><span>Size on Disk</span><strong>{selectedDocument.size}</strong></div>
+                <div><span>Last updated</span><strong>{selectedDocument.updated}</strong></div>
+                <div><span>Permitted Viewers</span><strong>{selectedDocument.viewers} active</strong></div>
+              </div>
+            )}
 
-            <button
-              className="od-primary-button od-full-button"
-              onClick={() => setSelectedDocument(null)}
-            >
-              Close details
-            </button>
+            <div className="od-modal-actions" style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <button
+                type="button"
+                className="od-secondary-button"
+                style={{ flex: 1 }}
+                onClick={() => openDocumentInNewTab(selectedDocument)}
+              >
+                <ExternalLink size={16} /> Open in New Tab
+              </button>
+
+              <button
+                type="button"
+                className="od-primary-button"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  downloadRealDocument(selectedDocument);
+                  addHistory("Document downloaded", selectedDocument.name);
+                  showNotice(`Downloaded "${selectedDocument.name}" successfully!`);
+                }}
+              >
+                <Download size={16} /> Download File (.txt)
+              </button>
+
+              <button
+                type="button"
+                className="od-secondary-button"
+                onClick={() => setSelectedDocument(null)}
+              >
+                Close
+              </button>
+            </div>
           </section>
         </div>
       )}

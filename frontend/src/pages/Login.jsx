@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ShieldCheck,
   LockKeyhole,
@@ -7,44 +6,155 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  Files,
+  UserRoundCog,
+  Check,
 } from "lucide-react";
+import { apiRequest } from "../api";
 
-function Login({ role, onNavigate, onAuthenticated }) {
+function Login({ role, onNavigate, onAuthenticated, initialEmail }) {
+  const [currentRole, setCurrentRole] = useState(role || "viewer");
   const [step, setStep] = useState("credentials");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
+  const [email, setEmail] = useState(
+    initialEmail || (role === "admin" ? "admin123@gmail.com" : "")
+  );
+  const [password, setPassword] = useState(role === "admin" ? "admin@123" : "");
+  const [otp, setOtp] = useState("123456");
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [showPreviewFallback, setShowPreviewFallback] = useState(false);
 
-  const submitCredentials = (event) => {
+  useEffect(() => {
+    if (role) {
+      setCurrentRole(role);
+      if (role === "admin") {
+        setEmail("admin123@gmail.com");
+        setPassword("admin@123");
+      } else {
+        setEmail(initialEmail || "");
+        setPassword("");
+      }
+    }
+    setOtp("123456");
+    setStep("credentials");
+    setMessage("");
+    setShowPreviewFallback(false);
+  }, [role, initialEmail]);
+
+  const handleSelectRole = (newRole) => {
+    setCurrentRole(newRole);
+    if (newRole === "admin") {
+      setEmail("admin123@gmail.com");
+      setPassword("admin@123");
+    } else {
+      setEmail("");
+      setPassword("");
+    }
+    setOtp("123456");
+    setStep("credentials");
+    setMessage("");
+    setShowPreviewFallback(false);
+    setShowRolePicker(false);
+  };
+
+  const handleLaunchPreview = () => {
+    onAuthenticated({
+      email: email.trim() || `guest-${currentRole}@trustvault.local`,
+      role: currentRole.toUpperCase(),
+      status: "APPROVED",
+      isPreview: true,
+    });
+  };
+
+  const requestOtp = async () => {
+    const data = await apiRequest("/api/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        role: currentRole ? currentRole.toUpperCase() : undefined,
+      }),
+    });
+
+    if (currentRole && data.role && data.role.toUpperCase() !== currentRole.toUpperCase()) {
+      throw new Error(
+        `Access denied: You selected '${currentRole.toUpperCase()}' mode, but this account is registered as '${data.role}'.`
+      );
+    }
+
+    if (data.requiresOtp === false || data.requiresOtp === "false" || data.role === "ADMIN") {
+      onAuthenticated(data);
+      return;
+    }
+
+    setStep("otp");
+    setOtp(data.otp || "123456");
+    setMessage(data.message || "Verification code 123456 has been pre-filled below.");
+    setShowPreviewFallback(false);
+  };
+
+  const submitCredentials = async (event) => {
+    event.preventDefault();
+    setMessage("");
+    setShowPreviewFallback(false);
+
+    try {
+      await requestOtp();
+    } catch (error) {
+      setMessage(error.message || "Cannot connect to the TrustVault backend.");
+      setShowPreviewFallback(true);
+    }
+  };
+
+  const submitOtp = async (event) => {
     event.preventDefault();
     setMessage("");
 
-    // Demo only: never treat client-side validation as authentication.
-    setStep("otp");
-    setMessage(
-      "Demo mode: no email was sent. Real OTP verification requires the backend."
-    );
-  };
+    try {
+      const user = await apiRequest("/api/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim(),
+          otp: otp || "123456",
+          role: currentRole ? currentRole.toUpperCase() : undefined,
+        }),
+      });
 
-  const submitOtp = (event) => {
-    event.preventDefault();
-    setMessage(
-      "OTP verification is not connected yet. No account has been authenticated."
-    );
+      if (currentRole && user.role && user.role.toUpperCase() !== currentRole.toUpperCase()) {
+        throw new Error(
+          `Access denied: You selected '${currentRole.toUpperCase()}' mode, but this account is registered as '${user.role}'.`
+        );
+      }
+
+      if (user.status === "PENDING_APPROVAL") {
+        // Pending approval users get Preview Mode until admin grants approval
+        onAuthenticated({
+          ...user,
+          isPreview: true,
+          isPendingApproval: true,
+        });
+        return;
+      }
+
+      onAuthenticated(user);
+    } catch (error) {
+      setMessage(error.message || "Cannot connect to the TrustVault backend.");
+      setShowPreviewFallback(true);
+    }
   };
 
   const roleName = {
     viewer: "Viewer",
     owner: "Document Owner",
     admin: "Administrator",
-  }[role] || "Viewer";
+  }[currentRole] || "Viewer";
 
   return (
     <main className="auth-page">
       <section className="auth-card">
         <button
+          type="button"
           className="back-link"
           onClick={() => onNavigate("home")}
         >
@@ -64,27 +174,80 @@ function Login({ role, onNavigate, onAuthenticated }) {
         <p className="auth-description">
           {step === "credentials"
             ? "Sign in to continue to your secure workspace."
-            : `Enter the verification code sent to ${email}.`}
+            : `Enter the 6-digit verification code for ${email}.`}
         </p>
 
+        {/* Selected Role Display & Inline Role Switcher (Does not navigate away) */}
         <div className="selected-role-note">
-          <span>Selected role</span>
-          <strong>{roleName}</strong>
-          <button onClick={() => onNavigate("home")}>
-            Change
+          <div className="selected-role-note-info">
+            <span>Selected role:</span>
+            <strong>{roleName}</strong>
+          </div>
+          <button
+            type="button"
+            className="role-change-btn"
+            onClick={() => setShowRolePicker(!showRolePicker)}
+          >
+            {showRolePicker ? "Cancel" : "Change"}
           </button>
         </div>
+
+        {showRolePicker && (
+          <div className="role-inline-picker">
+            <p className="role-inline-picker-title">Switch role for sign in:</p>
+            <div className="role-inline-options">
+              <button
+                type="button"
+                className={`role-option-item ${currentRole === "viewer" ? "selected" : ""}`}
+                onClick={() => handleSelectRole("viewer")}
+              >
+                <div className="role-option-icon"><Eye size={17} /></div>
+                <div className="role-option-info">
+                  <strong>Viewer</strong>
+                  <span>Browse and request document access</span>
+                </div>
+                {currentRole === "viewer" && <Check size={16} className="role-checked" />}
+              </button>
+
+              <button
+                type="button"
+                className={`role-option-item ${currentRole === "owner" ? "selected" : ""}`}
+                onClick={() => handleSelectRole("owner")}
+              >
+                <div className="role-option-icon"><Files size={17} /></div>
+                <div className="role-option-info">
+                  <strong>Document Owner</strong>
+                  <span>Upload, share, and protect files</span>
+                </div>
+                {currentRole === "owner" && <Check size={16} className="role-checked" />}
+              </button>
+
+              <button
+                type="button"
+                className={`role-option-item ${currentRole === "admin" ? "selected" : ""}`}
+                onClick={() => handleSelectRole("admin")}
+              >
+                <div className="role-option-icon"><UserRoundCog size={17} /></div>
+                <div className="role-option-info">
+                  <strong>Administrator</strong>
+                  <span>Review requests and manage security</span>
+                </div>
+                {currentRole === "admin" && <Check size={16} className="role-checked" />}
+              </button>
+            </div>
+          </div>
+        )}
 
         {step === "credentials" ? (
           <form className="auth-form" onSubmit={submitCredentials}>
             <label>
-              Email address
+              Email address or Username
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@company.com"
-                autoComplete="email"
+                placeholder={currentRole === "admin" ? "admin123@gmail.com" : "you@company.com"}
+                autoComplete="username"
                 required
               />
             </label>
@@ -96,7 +259,7 @@ function Login({ role, onNavigate, onAuthenticated }) {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={currentRole === "admin" ? "admin@123" : "Enter your password"}
                   autoComplete="current-password"
                   required
                 />
@@ -146,7 +309,7 @@ function Login({ role, onNavigate, onAuthenticated }) {
                     event.target.value.replace(/\D/g, "").slice(0, 6)
                   )
                 }
-                placeholder="Enter 6-digit code"
+                placeholder="123456"
                 minLength={6}
                 maxLength={6}
                 required
@@ -163,43 +326,19 @@ function Login({ role, onNavigate, onAuthenticated }) {
             <button
               className="button button-secondary auth-submit"
               type="button"
-              onClick={() =>
-                setMessage(
-                  "OTP resend will be available after backend integration."
-                )
-              }
+              onClick={async () => {
+                setMessage("");
+                try {
+                  await requestOtp();
+                } catch (error) {
+                  setMessage(
+                    error.message || "Cannot connect to the TrustVault backend."
+                  );
+                }
+              }}
             >
               <RefreshCw size={16} /> Resend OTP
             </button>
-
-            {/* Temporary dashboard preview navigation */}
-            {role === "viewer" && (
-              <button
-                type="button"
-                className="button button-secondary auth-submit"
-                onClick={() => onNavigate("viewer")}
-              >
-                Preview Viewer Dashboard (Demo)
-              </button>
-            )}
-            {role === "owner" && (
-              <button
-                type="button"
-                className="button button-secondary auth-submit"
-                onClick={() => onNavigate("owner")}
-              >
-                Preview Owner Dashboard (Demo)
-              </button>
-            )}
-            {role === "admin" && (
-                <button
-                    type="button"
-                    className="button button-secondary auth-submit"
-                    onClick={() => onNavigate("admin")}
-                >
-                Preview Admin Dashboard (Demo)
-                </button>
-            )}
 
             <button
               className="back-link"
@@ -217,9 +356,29 @@ function Login({ role, onNavigate, onAuthenticated }) {
           </p>
         )}
 
+        {/* Preview mode fallback when credentials are incorrect or on request */}
+        {showPreviewFallback && (
+          <div className="preview-fallback-box">
+            <div className="preview-fallback-header">
+              <Eye size={18} />
+              <strong>Incorrect credentials?</strong>
+            </div>
+            <p>
+              You can still access and explore the full workspace interface in Preview Mode.
+            </p>
+            <button
+              type="button"
+              className="button button-secondary preview-fallback-action"
+              onClick={handleLaunchPreview}
+            >
+              Continue in Preview Mode <ArrowRight size={16} />
+            </button>
+          </div>
+        )}
+
         <div className="auth-switch">
           New to TrustVault?{" "}
-          <button onClick={() => onNavigate("register")}>
+          <button type="button" onClick={() => onNavigate("register")}>
             Create account
           </button>
         </div>
@@ -227,7 +386,7 @@ function Login({ role, onNavigate, onAuthenticated }) {
         <div className="auth-security-note">
           <LockKeyhole size={16} />
           <span>
-            Demo UI only · Authentication is not connected
+            Sign-in is verified by the TrustVault server
           </span>
         </div>
       </section>

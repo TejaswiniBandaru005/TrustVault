@@ -1,5 +1,6 @@
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { apiRequest } from "../api";
 import {
   ShieldCheck,
   LayoutDashboard,
@@ -25,7 +26,13 @@ import {
   CalendarDays,
   LockKeyhole,
   ArrowUpRight,
+  Download,
+  ExternalLink,
 } from "lucide-react";
+import {
+  downloadRealDocument,
+  openDocumentInNewTab,
+} from "../utils/documentContent";
 
 const starterUsers = [
   { id: 1, name: "Olivia Martin", email: "olivia@example.com", role: "Owner", status: "Active", lastLogin: "Oct 21, 2026 · 09:15 AM" },
@@ -59,6 +66,7 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
   const [requests, setRequests] = useState(starterRequests);
   const [documents, setDocuments] = useState(starterDocuments);
   const [events, setEvents] = useState(starterEvents);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [notice, setNotice] = useState("");
@@ -87,7 +95,9 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
           .toLowerCase()
           .includes(search.toLowerCase());
 
-      const matchesRole = roleFilter === "All" || user.role === roleFilter;
+      const userRole = (user.role || "").toLowerCase();
+      const filterRole = roleFilter.toLowerCase();
+      const matchesRole = roleFilter === "All" || userRole === filterRole;
       return matchesSearch && matchesRole;
     });
   }, [users, search, roleFilter]);
@@ -104,50 +114,153 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
 
   const addNotice = (message) => setNotice(message);
 
-  const approveRequest = (request) => {
-    setUsers((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        name: request.name,
-        email: request.email,
-        role: request.role,
-        status: "Active",
-        lastLogin: "Never signed in",
-      },
-    ]);
+  const fetchAllData = () => {
+    apiRequest("/api/admin/pending-users")
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const normalized = data.map((r) => ({
+            ...r,
+            role: (r.role || "").toUpperCase() === "OWNER" ? "Owner" : "Viewer",
+          }));
+          setRequests((current) => {
+            const merged = [...normalized];
+            starterRequests.forEach((sr) => {
+              if (!merged.some((r) => r.email.toLowerCase() === sr.email.toLowerCase())) {
+                merged.push({
+                  ...sr,
+                  userCode: "TV-USR-REQ" + sr.id,
+                });
+              }
+            });
+            return merged;
+          });
+        }
+      })
+      .catch((err) => console.warn("Failed to fetch pending users:", err));
 
-    setRequests((current) => current.filter((item) => item.id !== request.id));
-    addEvent("Account approved (demo)", `${request.name} · ${request.role}`);
-    addNotice(
-      "Demo request approved locally. A real backend must enforce approval before login."
-    );
+    apiRequest("/api/admin/users")
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const normalized = data.map((u) => {
+            const r = (u.role || "").toUpperCase();
+            return {
+              ...u,
+              role: r === "OWNER" ? "Owner" : r === "ADMIN" ? "Admin" : "Viewer",
+            };
+          });
+          setUsers((current) => {
+            const merged = [...normalized];
+            starterUsers.forEach((su) => {
+              if (!merged.some((u) => u.email.toLowerCase() === su.email.toLowerCase())) {
+                merged.push({
+                  ...su,
+                  userCode: "TV-USR-000" + su.id,
+                  lastLogout: "None",
+                });
+              }
+            });
+            return merged;
+          });
+        }
+      })
+      .catch((err) => console.warn("Failed to fetch users:", err));
+
+    apiRequest("/api/admin/audit-logs")
+      .then((logs) => {
+        if (Array.isArray(logs)) {
+          setAuditLogs(logs);
+        }
+      })
+      .catch((err) => console.warn("Failed to fetch audit logs:", err));
   };
 
-  const rejectRequest = (request) => {
-    setRequests((current) => current.filter((item) => item.id !== request.id));
-    addEvent("Account request rejected (demo)", request.email, "warning");
-    addNotice("Demo request rejected locally; no server record was changed.");
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const approveRequest = async (request) => {
+    try {
+      await apiRequest("/api/admin/approve-user", {
+        method: "POST",
+        body: JSON.stringify({ email: request.email, id: request.id }),
+      });
+      const normRole = (request.role || "").toUpperCase() === "OWNER" ? "Owner" : "Viewer";
+      setUsers((current) => [
+        ...current.filter((u) => u.email.toLowerCase() !== request.email.toLowerCase()),
+        {
+          id: request.id || Date.now(),
+          userCode: request.userCode || "TV-USR-" + Math.floor(1000 + Math.random() * 9000),
+          name: request.name,
+          email: request.email,
+          role: normRole,
+          status: "Active",
+          rawStatus: "APPROVED",
+          lastLogin: "Never signed in",
+          lastLogout: "None",
+        },
+      ]);
+      setRequests((current) => current.filter((item) => item.email.toLowerCase() !== request.email.toLowerCase() && item.id !== request.id));
+      addEvent("Account approved", request.name + " · " + normRole, "success");
+      addNotice("Account for " + request.email + " (" + normRole + ") has been approved! Full access granted.");
+      fetchAllData();
+    } catch (err) {
+      addNotice("Approval error: " + err.message);
+    }
   };
 
-  const toggleUserStatus = (user) => {
-    const nextStatus = user.status === "Active" ? "Suspended" : "Active";
+  const rejectRequest = async (request) => {
+    try {
+      await apiRequest("/api/admin/reject-user", {
+        method: "POST",
+        body: JSON.stringify({ email: request.email, id: request.id }),
+      });
+      setRequests((current) => current.filter((item) => item.email.toLowerCase() !== request.email.toLowerCase() && item.id !== request.id));
+      addEvent("Account request rejected", request.email, "warning");
+      addNotice("Account request for " + request.email + " was rejected.");
+      fetchAllData();
+    } catch (err) {
+      addNotice("Rejection error: " + err.message);
+    }
+  };
 
-    setUsers((current) =>
-      current.map((item) =>
-        item.id === user.id ? { ...item, status: nextStatus } : item
-      )
-    );
+  const handleRevokeUser = async (user) => {
+    try {
+      await apiRequest("/api/admin/revoke-user", {
+        method: "POST",
+        body: JSON.stringify({ email: user.email, id: user.id }),
+      });
+      setUsers((current) =>
+        current.map((item) => (item.email.toLowerCase() === user.email.toLowerCase() ? { ...item, status: "Revoked", rawStatus: "REVOKED" } : item))
+      );
+      addNotice("Access revoked for " + user.email + ". They can no longer access protected resources.");
+      fetchAllData();
+    } catch (err) {
+      addNotice("Revoke error: " + err.message);
+    }
+  };
 
-    addEvent(
-      `User ${nextStatus.toLowerCase()} (demo)`,
-      `${user.name} · ${user.email}`,
-      nextStatus === "Suspended" ? "warning" : "success"
-    );
+  const handleRestoreUser = async (user) => {
+    try {
+      await apiRequest("/api/admin/restore-user", {
+        method: "POST",
+        body: JSON.stringify({ email: user.email, id: user.id }),
+      });
+      setUsers((current) =>
+        current.map((item) => (item.email.toLowerCase() === user.email.toLowerCase() ? { ...item, status: "Active", rawStatus: "APPROVED" } : item))
+      );
+      addNotice("Access granted/restored for " + user.email + ".");
+      fetchAllData();
+    } catch (err) {
+      addNotice("Restore error: " + err.message);
+    }
+  };
 
-    addNotice(
-      `User marked ${nextStatus.toLowerCase()} in this demo only. Backend login and session checks are still required.`
-    );
+  const toggleUserStatus = async (user) => {
+    if (user.status === "Active") {
+      await handleRevokeUser(user);
+    } else {
+      await handleRestoreUser(user);
+    }
   };
 
   const deleteDocument = (doc) => {
@@ -183,8 +296,9 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
   }[section];
 
   const visibleUsers = filteredUsers.filter((user) => {
-    if (section === "viewers") return user.role === "Viewer";
-    if (section === "owners") return user.role === "Owner";
+    const roleLower = (user.role || "").toLowerCase();
+    if (section === "viewers") return roleLower === "viewer";
+    if (section === "owners") return roleLower === "owner";
     return true;
   });
 
@@ -404,9 +518,9 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
                       <button className="ad-small-btn" onClick={() => setSelectedUser(user)} title="Inspect user">
                         <Eye size={15} /> Details
                       </button>
-                      <button className={`ad-small-btn ${user.status === "Active" ? "danger" : ""}`} onClick={() => toggleUserStatus(user)}>
+                      <button className={`ad-small-btn ${user.status === "Active" ? "danger" : ""}`} onClick={() => toggleUserStatus(user)} title={user.status === "Active" ? "Revoke access" : "Grant access"}>
                         {user.status === "Active" ? <UserX size={15} /> : <UserCheck size={15} />}
-                        {user.status === "Active" ? "Suspend" : "Activate"}
+                        {user.status === "Active" ? "Revoke" : "Grant"}
                       </button>
                     </div>
                   </article>
@@ -467,11 +581,42 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
             <span className="ad-avatar large">{selectedUser.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>
             <div><strong>{selectedUser.name}</strong><small>{selectedUser.role} · {selectedUser.status}</small></div>
           </div>
+          <Detail label="Unique Worker ID" value={selectedUser.userCode || `TV-USR-000${selectedUser.id}`} />
           <Detail label="Email address" value={selectedUser.email} />
+          <Detail label="Role" value={selectedUser.role} />
+          <Detail label="Account Status" value={selectedUser.status} />
           <Detail label="Last login" value={selectedUser.lastLogin} />
-          <Detail label="Account ID (demo)" value={String(selectedUser.id)} />
-          <p className="ad-modal-note">This is sample account information. Login history and session revocation require backend integration.</p>
-          <button className="ad-primary-btn full" onClick={() => setSelectedUser(null)}>Close details</button>
+          <Detail label="Last logout" value={selectedUser.lastLogout || "None"} />
+          {selectedUser.phone && <Detail label="Phone" value={selectedUser.phone} />}
+          
+          <div className="ad-modal-actions" style={{ marginTop: "18px", gap: "10px" }}>
+            {selectedUser.status === "Active" ? (
+              <button
+                className="ad-danger-btn"
+                style={{ flex: 1 }}
+                onClick={async () => {
+                  await handleRevokeUser(selectedUser);
+                  setSelectedUser((u) => ({ ...u, status: "Revoked" }));
+                }}
+              >
+                <UserX size={15} /> Revoke Access
+              </button>
+            ) : (
+              <button
+                className="ad-approve-btn"
+                style={{ flex: 1 }}
+                onClick={async () => {
+                  await handleRestoreUser(selectedUser);
+                  setSelectedUser((u) => ({ ...u, status: "Active" }));
+                }}
+              >
+                <CheckCircle2 size={15} /> Grant Access
+              </button>
+            )}
+            <button className="ad-secondary-btn" style={{ flex: 1 }} onClick={() => setSelectedUser(null)}>
+              Close
+            </button>
+          </div>
         </Modal>
       )}
 
@@ -484,9 +629,22 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
           <Detail label="File size" value={selectedDocument.size} />
           <Detail label="Last updated" value={selectedDocument.updated} />
           <p className="ad-modal-note">Admin document inspection is metadata-only in this demo. Protected file content is not loaded.</p>
-          <div className="ad-modal-actions">
-            <button className="ad-secondary-btn" onClick={() => setSelectedDocument(null)}>Close</button>
-            <button className="ad-danger-btn" onClick={() => deleteDocument(selectedDocument)}><Trash2 size={15} /> Delete entry</button>
+          <div className="ad-modal-actions" style={{ gap: "10px", marginTop: "18px" }}>
+            <button className="ad-secondary-btn" onClick={() => openDocumentInNewTab(selectedDocument)} title="Open document reader in new tab">
+              <ExternalLink size={15} /> Open in Tab
+            </button>
+            <button className="ad-primary-btn" onClick={() => {
+              downloadRealDocument(selectedDocument);
+              addNotice(`Downloaded "${selectedDocument.name}" successfully!`);
+            }}>
+              <Download size={15} /> Download (.txt)
+            </button>
+            <button className="ad-danger-btn" onClick={() => deleteDocument(selectedDocument)} title="Remove entry">
+              <Trash2 size={15} /> Delete
+            </button>
+            <button className="ad-secondary-btn" onClick={() => setSelectedDocument(null)}>
+              Close
+            </button>
           </div>
         </Modal>
       )}

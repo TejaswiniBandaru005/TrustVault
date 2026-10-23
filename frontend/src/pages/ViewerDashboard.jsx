@@ -21,7 +21,13 @@ import {
   ShieldCheck,
   Menu,
   X,
+  ExternalLink,
 } from "lucide-react";
+import {
+  downloadRealDocument,
+  openDocumentInNewTab,
+  generateDocumentText,
+} from "../utils/documentContent";
 
 const demoDocuments = [
   {
@@ -121,6 +127,7 @@ export default function ViewerDashboard({
   const [category, setCategory] = useState("All");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [readerTab, setReaderTab] = useState("content");
   const [notice, setNotice] = useState("");
   const [requestedIds, setRequestedIds] = useState([]);
 
@@ -185,14 +192,17 @@ export default function ViewerDashboard({
       return;
     }
 
-    addHistory(
-      "Download attempted",
-      document.name,
-      "Demo only — no file was downloaded"
-    );
-    showNotice(
-      "Download permission is enabled in the demo, but no real file is stored."
-    );
+    try {
+      downloadRealDocument(document);
+      addHistory(
+        "Document downloaded",
+        document.name,
+        "File downloaded to local machine"
+      );
+      showNotice(`Downloaded "${document.name}" successfully!`);
+    } catch (err) {
+      showNotice("Download error: " + err.message);
+    }
   };
 
   const visibleDocuments = documents.filter(matchesSearch);
@@ -642,7 +652,7 @@ export default function ViewerDashboard({
           onClick={() => setSelectedDocument(null)}
         >
           <section
-            className="vd-modal"
+            className="vd-modal vd-modal-expanded"
             role="dialog"
             aria-modal="true"
             aria-labelledby="vd-modal-title"
@@ -650,7 +660,7 @@ export default function ViewerDashboard({
           >
             <div className="vd-modal-heading">
               <div>
-                <span className="vd-eyebrow">DOCUMENT PREVIEW</span>
+                <span className="vd-eyebrow">DOCUMENT ENCLAVE READER</span>
                 <h2 id="vd-modal-title">{selectedDocument.name}</h2>
               </div>
               <button
@@ -662,41 +672,74 @@ export default function ViewerDashboard({
               </button>
             </div>
 
-            <div className="vd-preview-notice">
-              <Eye size={24} />
-              <strong>Preview placeholder</strong>
-              <p>
-                This demo does not contain the actual document file. When the
-                backend is connected, this area will display the document only
-                after server-side authorization succeeds.
-              </p>
+            <div className="vd-reader-tabs">
+              <button
+                type="button"
+                className={`vd-reader-tab-btn ${readerTab === "content" ? "active" : ""}`}
+                onClick={() => setReaderTab("content")}
+              >
+                <Eye size={15} /> Document Content & Text
+              </button>
+              <button
+                type="button"
+                className={`vd-reader-tab-btn ${readerTab === "metadata" ? "active" : ""}`}
+                onClick={() => setReaderTab("metadata")}
+              >
+                <ShieldCheck size={15} /> Security & Metadata
+              </button>
             </div>
 
-            <div className="vd-metadata">
-              <div><span>Owner</span><strong>{selectedDocument.owner}</strong></div>
-              <div><span>Category</span><strong>{selectedDocument.category}</strong></div>
-              <div><span>File type</span><strong>{selectedDocument.type}</strong></div>
-              <div><span>Updated</span><strong>{selectedDocument.updated}</strong></div>
-              <div>
-                <span>Download permission</span>
-                <strong>{selectedDocument.canDownload ? "Enabled in demo" : "Not permitted"}</strong>
+            {readerTab === "content" ? (
+              <div className="vd-reader-pane">
+                <div className="vd-reader-banner">
+                  <ShieldCheck size={16} />
+                  <span>Verified Access Clearance · Level 2 Restricted</span>
+                </div>
+                <pre className="vd-file-content-box">
+                  {generateDocumentText(selectedDocument)}
+                </pre>
               </div>
-            </div>
+            ) : (
+              <div className="vd-metadata">
+                <div><span>Document Name</span><strong>{selectedDocument.name}</strong></div>
+                <div><span>Owner / Publisher</span><strong>{selectedDocument.owner}</strong></div>
+                <div><span>Classification</span><strong>{selectedDocument.category}</strong></div>
+                <div><span>File Type</span><strong>{selectedDocument.type}</strong></div>
+                <div><span>Size on Disk</span><strong>{selectedDocument.size}</strong></div>
+                <div><span>Last Modified</span><strong>{selectedDocument.updated}</strong></div>
+                <div>
+                  <span>Download Authorization</span>
+                  <strong>{selectedDocument.canDownload ? "Approved (Download Permitted)" : "Restricted (View Only)"}</strong>
+                </div>
+              </div>
+            )}
 
             <div className="vd-modal-actions">
+              <button
+                type="button"
+                className="vd-secondary-button"
+                onClick={() => openDocumentInNewTab(selectedDocument)}
+                title="Open complete document in a separate browser window"
+              >
+                <ExternalLink size={16} /> Open in New Tab
+              </button>
+
               {selectedDocument.canDownload && (
                 <button
+                  type="button"
                   className="vd-primary-button"
                   onClick={() => downloadDocument(selectedDocument)}
                 >
-                  <Download size={17} /> Download demo
+                  <Download size={16} /> Download File (.txt)
                 </button>
               )}
+
               <button
+                type="button"
                 className="vd-secondary-button"
                 onClick={() => setSelectedDocument(null)}
               >
-                Close preview
+                Close Reader
               </button>
             </div>
           </section>

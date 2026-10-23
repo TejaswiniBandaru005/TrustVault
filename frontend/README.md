@@ -1,5 +1,31 @@
 # React + Vite
 
+## Run TrustVault locally
+
+The Vite development server proxies `/api` requests to the Spring Boot server at
+`http://localhost:8080`. Start the backend and frontend in separate terminals:
+
+```powershell
+cd trustvault-backend
+.\mvnw.cmd spring-boot:run
+```
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Before starting the backend, configure `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`,
+`MAIL_USERNAME`, `MAIL_PASSWORD`, and `APP_ADMIN_PASSWORD` in the local process
+environment. Do not commit credentials. To proxy to a backend on a different
+address, set `VITE_API_PROXY_TARGET` before starting Vite. For a separately
+hosted frontend, set `VITE_API_BASE_URL` to the backend's API origin.
+
+The connected authentication endpoints are health check, registration, OTP
+login, and email password reset. The document dashboards still use demo data
+until document and permission APIs are implemented by the backend.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
