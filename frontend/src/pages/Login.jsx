@@ -25,12 +25,12 @@ import { ROLE_DETAILS } from "./Register";
 
 const getDefaultCredentials = (roleName) => {
   switch (roleName?.toLowerCase()) {
-    case "owner":
-      return { email: "owner1@example.com", password: "Owner1@123" };
     case "admin":
+      return { email: "admin123@gmail.com", password: "admin@123" };
+    case "owner":
     case "viewer":
     default:
-      // Default credentials removed for both admin and viewer as requested
+      // Default credentials removed for owner and viewer as requested
       return { email: "", password: "" };
   }
 };
@@ -523,10 +523,10 @@ function Login({ role, onNavigate, onAuthenticated, onPreview, initialEmail }) {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder={
-                      currentRole === "owner"
-                        ? "owner1@example.com"
-                        : currentRole === "admin"
-                        ? "admin@enterprise.com"
+                      currentRole === "admin"
+                        ? "admin123@gmail.com"
+                        : currentRole === "owner"
+                        ? "owner@enterprise.com"
                         : "viewer@enterprise.com"
                     }
                     autoComplete="username"
@@ -542,8 +542,8 @@ function Login({ role, onNavigate, onAuthenticated, onPreview, initialEmail }) {
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder={
-                        currentRole === "owner"
-                          ? "Owner1@123"
+                        currentRole === "admin"
+                          ? "admin@123"
                           : "Enter password"
                       }
                       autoComplete="current-password"

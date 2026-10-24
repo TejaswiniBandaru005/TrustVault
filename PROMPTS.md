@@ -101,7 +101,7 @@
 * **Focus Area:** **AUTHORIZATION, ACCESS CONTROL & AUDIT TRAIL**
 * **Date:** 2026-10-25
 * **What you asked for:**
-  1. Remove default credentials for Admin and Viewer in the sign-in form.
+  1. Retain default credentials for Administrator (`admin123@gmail.com` / `admin@123`), while removing default credentials for Owner and Viewer in the sign-in form.
   2. Fix the bug where an owner granting access to a viewer displayed `"Demo Document Owner"` instead of the owner's real name.
   3. In both Owner and Admin dashboards, the *"Grant Document Permission"* form must display all existing viewer emails and autocomplete/filter matching emails as starting letters are typed.
   4. Update Docker for Render cloud deployment, update `THREATS.md`, `PROMPTS.md`, and add UI micro-interactions.
@@ -112,7 +112,7 @@
   - **No Viewer Discovery:** Without autocomplete, owners frequently mistyped recipient emails, creating orphaned clearance records.
   - **Administrator Lockout:** Administrators could not delegate document clearances during security reviews.
 * **What we did instead:**
-  1. Cleared default credentials for Admin and Viewer in [`Login.jsx`](file:///D:/TrustVault/frontend/src/pages/Login.jsx).
+  1. Preserved administrator credentials (`admin123@gmail.com` / `admin@123`) in [`Login.jsx`](file:///D:/TrustVault/frontend/src/pages/Login.jsx) while ensuring Owner and Viewer forms start empty without hardcoded credentials.
   2. Implemented `resolveOwnerDisplayName()` in [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to dynamically fetch the real user profile name, and added database sanitization queries in `AdminSeeder.java`.
   3. Created [`ViewerEmailAutocomplete.jsx`](file:///D:/TrustVault/frontend/src/components/ViewerEmailAutocomplete.jsx) with starting-letter prefix filtering, matched-text highlighting, and quick-select chips.
   4. Added `GET /api/documents/viewers` endpoint in `DocumentController.java` and updated `/grant-access` to allow both Document Owners and Administrators with full audit logging.
