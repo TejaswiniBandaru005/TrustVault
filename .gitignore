@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build artifacts
+target/
+**/target/
+
+# Local uploaded files
+uploads/
+**/uploads/
+
+# Logs & temp
+*.log
+.DS_Store

@@ -45,10 +45,12 @@ public class SecurityConfig {
                 CorsConfiguration config = new CorsConfiguration();
                 config.setAllowedOriginPatterns(List.of("*"));
                 config.setAllowedMethods(
-                        List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH")
                 );
                 config.setAllowedHeaders(List.of("*"));
+                config.setExposedHeaders(List.of("*"));
                 config.setAllowCredentials(true);
+                config.setMaxAge(3600L);
                 return config;
             }))
             .csrf(csrf -> csrf.disable())

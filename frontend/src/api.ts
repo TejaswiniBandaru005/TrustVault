@@ -2,7 +2,15 @@
  * TrustVault Type-Safe API Client
  */
 
-const apiBaseUrl: string = (import.meta as any).env?.VITE_API_BASE_URL || "";
+// Support VITE_API_BASE_URL, BACKEND_API_BASE_URL (from Vercel env), or VITE_BACKEND_URL
+const rawBaseUrl: string =
+  (import.meta as any).env?.VITE_API_BASE_URL ||
+  (import.meta as any).env?.BACKEND_API_BASE_URL ||
+  (import.meta as any).env?.VITE_BACKEND_URL ||
+  "";
+
+// Strip trailing slash so `${apiBaseUrl}${path}` won't produce double slashes like `https://...//api/...`
+const apiBaseUrl: string = typeof rawBaseUrl === "string" ? rawBaseUrl.replace(/\/+$/, "") : "";
 
 export interface ApiRequestOptions extends Omit<RequestInit, "headers" | "body"> {
   headers?: Record<string, string>;
@@ -20,7 +28,11 @@ export async function apiRequest<T = any>(
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = apiBaseUrl ? `${apiBaseUrl}${normalizedPath}` : normalizedPath;
+
+  const response = await fetch(url, {
     ...options,
     headers,
   });
