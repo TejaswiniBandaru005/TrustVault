@@ -2,7 +2,7 @@
  * TrustVault Type-Safe API Client
  */
 
-const apiBaseUrl: string = (import.meta as any).env?.VITE_API_BASE_URL || "";
+const apiBaseUrl: string = (import.meta as any).env?.BACKEND_API_BASE_URL || "";
 
 export interface ApiRequestOptions extends Omit<RequestInit, "headers" | "body"> {
   headers?: Record<string, string>;
