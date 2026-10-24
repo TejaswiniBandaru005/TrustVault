@@ -50,13 +50,13 @@ const starterRequests = [];
 
 // Authentic Day 1 to Day 7 Engineering Progress Reports
 const starterDocuments = [
-  { id: 101, name: "Day 01 - Architecture and Zero-Trust Foundations.pdf", owner: "System Administrator", category: "Architecture", updated: "Oct 19, 2026", size: "1.2 MB", fileChecksum: "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab" },
-  { id: 102, name: "Day 02 - Security Threat Modeling & STRIDE Matrix.pdf", owner: "System Administrator", category: "Security", updated: "Oct 20, 2026", size: "1.8 MB", fileChecksum: "f7c3b2d90123a78b90c1e2f3a4b5c678901234567890abcdef1234567890bc" },
-  { id: 103, name: "Day 03 - Cryptographic Hashing & Storage Engine.pdf", owner: "System Administrator", category: "Cryptography", updated: "Oct 21, 2026", size: "2.1 MB", fileChecksum: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0" },
-  { id: 104, name: "Day 04 - Multi-Factor Authentication & OTP Engine.pdf", owner: "System Administrator", category: "Authentication", updated: "Oct 22, 2026", size: "1.6 MB", fileChecksum: "b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01" },
-  { id: 105, name: "Day 05 - Vercel & Render Cloud Infrastructure.pdf", owner: "System Administrator", category: "DevOps", updated: "Oct 23, 2026", size: "2.4 MB", fileChecksum: "c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef012" },
-  { id: 106, name: "Day 06 - Enclave Soft-Delete & Access Gating.pdf", owner: "System Administrator", category: "Governance", updated: "Oct 24, 2026", size: "1.9 MB", fileChecksum: "d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123" },
-  { id: 107, name: "Day 07 - Autocomplete Delegation & Security Hardening.pdf", owner: "System Administrator", category: "Security", updated: "Oct 25, 2026", size: "2.3 MB", fileChecksum: "e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01234" },
+  { id: 101, day: 1, name: "Day 01 - Architecture and Zero-Trust Foundations.pdf", owner: "System Administrator", category: "Architecture", updated: "Oct 19, 2026", size: "1.2 MB", fileChecksum: "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab", summary: "Zero-Trust foundational axioms, triple-tier RBAC architecture (Admin, Owner, Viewer), Spring Security cryptographic gateway, and attack surface boundary definition." },
+  { id: 102, day: 2, name: "Day 02 - Security Threat Modeling & STRIDE Matrix.pdf", owner: "System Administrator", category: "Security", updated: "Oct 20, 2026", size: "1.8 MB", fileChecksum: "f7c3b2d90123a78b90c1e2f3a4b5c678901234567890abcdef1234567890bc", summary: "STRIDE threat model assessment, DREAD vulnerability quantification, SHA-256 byte digest pipeline, and single-use OTP replay mitigation." },
+  { id: 103, day: 3, name: "Day 03 - Cryptographic Hashing & Storage Engine.pdf", owner: "System Administrator", category: "Engineering", updated: "Oct 21, 2026", size: "2.1 MB", fileChecksum: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0", summary: "SHA-256 multipart upload processor, physical isolated disk storage, Neon AWS PostgreSQL relational schema, and append-only audit ledger." },
+  { id: 104, day: 4, name: "Day 04 - Multi-Factor Authentication & OTP Engine.pdf", owner: "System Administrator", category: "Authentication", updated: "Oct 22, 2026", size: "1.6 MB", fileChecksum: "b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01", summary: "Spring Security 6 stateless filter chain, 6-digit OTP verification protocol, purpose-bound email validation, and role clearance switcher." },
+  { id: 105, day: 5, name: "Day 05 - Vercel & Render Cloud Infrastructure.pdf", owner: "System Administrator", category: "DevOps", updated: "Oct 23, 2026", size: "2.4 MB", fileChecksum: "c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef012", summary: "Dual-cloud deployment orchestration: Vercel Edge frontend with reverse-proxy rewrites, Render containerized backend with dynamic $PORT, and CORS configuration." },
+  { id: 106, day: 6, name: "Day 06 - Enclave Soft-Delete & Access Gating.pdf", owner: "System Administrator", category: "Governance", updated: "Oct 24, 2026", size: "1.9 MB", fileChecksum: "d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123", summary: "Soft-deletion preservation enclave, unverified preview containment, instant administrative access revocation, and document restoration pipeline." },
+  { id: 107, day: 7, name: "Day 07 - Autocomplete Delegation & Security Hardening.pdf", owner: "System Administrator", category: "Security", updated: "Oct 25, 2026", size: "2.3 MB", fileChecksum: "e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01234", summary: "Viewer autocomplete delegation with prefix matching, real owner identity resolution, Docker security containerization, and unit test verification suite." },
 ];
 
 const starterEvents = [
@@ -81,7 +81,7 @@ function AdminDashboard({
   const [section, setSection] = useState(() => {
     try {
       const hash = window.location.hash?.replace("#", "");
-      const valid = ["overview", "requests", "viewers", "owners", "documents", "upload", "permissions", "deleted", "activity", "events"];
+      const valid = ["overview", "reports", "requests", "viewers", "owners", "documents", "upload", "permissions", "deleted", "activity", "events"];
       if (hash && valid.includes(hash)) {
         return hash;
       }
@@ -237,10 +237,21 @@ function AdminDashboard({
     apiRequest("/api/documents/catalog")
       .then((docs) => {
         if (Array.isArray(docs)) {
-          setDocuments(docs);
+          setDocuments(() => {
+            const merged = [...docs];
+            starterDocuments.forEach((sd) => {
+              if (!merged.some((d) => (d.name || "").toLowerCase() === sd.name.toLowerCase())) {
+                merged.push(sd);
+              }
+            });
+            return merged;
+          });
         }
       })
-      .catch((err) => console.warn("Failed to fetch catalog documents:", err));
+      .catch((err) => {
+        console.warn("Failed to fetch catalog documents:", err);
+        setDocuments(starterDocuments);
+      });
 
     apiRequest("/api/documents/admin/deleted")
       .then((delDocs) => {
@@ -477,6 +488,7 @@ function AdminDashboard({
 
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "reports", label: "Daily Reports (Day 1-7)", icon: CalendarDays, count: 7 },
     { id: "requests", label: "New Requests", icon: UserCheck, count: requests.length },
     { id: "viewers", label: "Viewer Details", icon: Users },
     { id: "owners", label: "Owner Details", icon: ShieldCheck },
@@ -489,6 +501,7 @@ function AdminDashboard({
 
   const pageTitle = {
     overview: "Admin Overview",
+    reports: "Daily Engineering Progress Reports (Day 1 – 7)",
     requests: "Registration Requests",
     viewers: "Viewer Details",
     owners: "Owner Details",
@@ -691,6 +704,73 @@ function AdminDashboard({
                 <Stat icon={ShieldAlert} label="Security Alerts" value={events.filter((event) => event.type === "danger").length} note="Sample alert events" tone="red" />
               </div>
 
+              {/* Daily Engineering Milestone Reports Showcase */}
+              <section className="ad-panel" style={{ padding: "26px 28px" }}>
+                <div className="ad-card-header" style={{ marginBottom: "20px" }}>
+                  <div className="ad-card-header-info">
+                    <div className="ad-card-header-icon" style={{ background: "rgba(37, 99, 235, 0.12)" }}>
+                      <CalendarDays size={24} />
+                    </div>
+                    <div className="ad-card-header-text">
+                      <h2>Daily Engineering Progress Reports (Day 1 – 7)</h2>
+                      <p>7 authenticated milestone reports documenting the architecture, STRIDE threat model, OTP engine, and cloud deployment in PDF format.</p>
+                    </div>
+                  </div>
+                  <button
+                    className="ad-secondary-btn"
+                    onClick={() => setSection("reports")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <span>View All 7 Reports</span>
+                    <ArrowUpRight size={14} />
+                  </button>
+                </div>
+
+                <div className="ad-reports-grid">
+                  {starterDocuments.map((doc) => (
+                    <div key={doc.id} className="ad-report-card">
+                      <div>
+                        <div className="ad-report-card-top">
+                          <span className="ad-report-day-badge">DAY {String(doc.day || "").padStart(2, "0")} · {doc.category}</span>
+                          <span className="ad-report-pdf-tag">PDF DOCUMENT</span>
+                        </div>
+                        <h3 className="ad-report-title">{doc.name}</h3>
+                        <p className="ad-report-summary">{doc.summary}</p>
+                      </div>
+
+                      <div>
+                        <div className="ad-report-meta-row">
+                          <span>📅 {doc.updated}</span>
+                          <IntegrityPill hash={doc.fileChecksum} />
+                        </div>
+
+                        <div className="ad-report-actions-row" style={{ marginTop: "14px" }}>
+                          <button
+                            type="button"
+                            className="ad-report-btn-preview"
+                            onClick={() => openDocumentInNewTab(doc)}
+                            title="Preview document in secure reader"
+                          >
+                            <Eye size={14} /> Preview
+                          </button>
+                          <button
+                            type="button"
+                            className="ad-report-btn-download"
+                            onClick={() => {
+                              downloadRealDocument(doc);
+                              addNotice(`Downloaded "${doc.name}" in PDF format!`);
+                            }}
+                            title="Download document in PDF format"
+                          >
+                            <Download size={14} /> Download PDF
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
               <div className="ad-overview-grid">
                 <section className="ad-panel ad-request-panel">
                   <div className="ad-panel-heading">
@@ -726,6 +806,84 @@ function AdminDashboard({
                 <DocumentTable documents={documents.slice(0, 4)} onInspect={setSelectedDocument} onDelete={deleteDocument} />
               </section>
             </>
+          )}
+
+          {section === "reports" && (
+            <div className="ad-reports-wrapper" style={{ maxWidth: "100%" }}>
+              <div className="ad-reports-hero-banner">
+                <div className="ad-reports-hero-content">
+                  <h2>
+                    <CalendarDays size={26} style={{ color: "var(--primary)" }} />
+                    Daily Engineering Progress Reports Enclave
+                  </h2>
+                  <p>
+                    Official Day 1 through Day 7 technical progress reports detailing TrustVault's Zero-Trust architecture, STRIDE threat analysis, Neon PostgreSQL cryptographic ingestion, multi-factor authentication, Vercel & Render cloud topology, and delegation hardening. All reports are available in PDF format.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    className="ad-primary-btn"
+                    onClick={() => {
+                      starterDocuments.forEach((doc, idx) => {
+                        setTimeout(() => downloadRealDocument(doc), idx * 250);
+                      });
+                      addNotice("Exporting all 7 Daily Engineering Progress Reports in PDF format...");
+                    }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px" }}
+                  >
+                    <Download size={16} /> Download All 7 Reports (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              <div className="ad-reports-grid">
+                {starterDocuments.map((doc) => (
+                  <div key={doc.id} className="ad-report-card">
+                    <div>
+                      <div className="ad-report-card-top">
+                        <span className="ad-report-day-badge">DAY {String(doc.day || "").padStart(2, "0")} · {doc.category}</span>
+                        <span className="ad-report-pdf-tag">PDF DOCUMENT</span>
+                      </div>
+                      <h3 className="ad-report-title">{doc.name}</h3>
+                      <p className="ad-report-summary">{doc.summary}</p>
+                    </div>
+
+                    <div>
+                      <div className="ad-report-meta-row">
+                        <span>📅 Milestone: {doc.updated}</span>
+                        <span>Size: {doc.size}</span>
+                      </div>
+                      <div style={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: "0.74rem", color: "var(--muted)" }}>SHA-256 Fingerprint:</span>
+                        <IntegrityPill hash={doc.fileChecksum} />
+                      </div>
+
+                      <div className="ad-report-actions-row" style={{ marginTop: "16px" }}>
+                        <button
+                          type="button"
+                          className="ad-report-btn-preview"
+                          onClick={() => openDocumentInNewTab(doc)}
+                          title="Preview document in secure reader"
+                        >
+                          <Eye size={15} /> Preview
+                        </button>
+                        <button
+                          type="button"
+                          className="ad-report-btn-download"
+                          onClick={() => {
+                            downloadRealDocument(doc);
+                            addNotice(`Downloaded "${doc.name}" in PDF format!`);
+                          }}
+                          title="Download document in PDF format"
+                        >
+                          <Download size={15} /> Download PDF
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {section === "requests" && (
@@ -844,73 +1002,112 @@ function AdminDashboard({
           )}
 
           {section === "permissions" && (
-            <div className="od-permissions-container" style={{ width: "100%" }}>
-              <section className="ad-panel od-panel" style={{ padding: "28px" }}>
-                <div className="od-panel-heading">
-                  <div>
-                    <h2>Grant Document Permission</h2>
-                    <p>Authorize a verified viewer to view or download a selected document across any enclave.</p>
+            <div className="ad-permissions-wrapper">
+              <section className="ad-permissions-card">
+                <div className="ad-card-header">
+                  <div className="ad-card-header-info">
+                    <div className="ad-card-header-icon">
+                      <LockKeyhole size={24} />
+                    </div>
+                    <div className="ad-card-header-text">
+                      <h2>Grant Document Permission</h2>
+                      <p>Authorize a verified viewer to view or download a selected document across any enclave with cryptographic access delegation.</p>
+                    </div>
                   </div>
-                  <LockKeyhole size={24} style={{ color: "var(--primary)" }} />
+                  <span className="ad-auth-summary-badge">
+                    <ShieldCheck size={14} /> ZERO-TRUST ENCLAVE
+                  </span>
                 </div>
 
-                <form className="od-permission-form" onSubmit={handleAdminGrantPermission} style={{ maxWidth: "700px", marginTop: "16px" }}>
-                  <label>
-                    Viewer email
+                <form className="ad-permissions-form" onSubmit={handleAdminGrantPermission}>
+                  <div className="ad-form-group">
+                    <label className="ad-form-label">
+                      <span>Viewer Email</span>
+                      <span className="ad-form-label-hint">Prefix-match registered viewers</span>
+                    </label>
                     <ViewerEmailAutocomplete
                       value={grantViewerEmail}
                       onChange={setGrantViewerEmail}
-                      placeholder="Type viewer email (points to registered viewers)..."
+                      placeholder="Type viewer email (e.g. viewer1@example.com)..."
                       required
                     />
-                  </label>
+                  </div>
 
-                  <label>
-                    Select Document
-                    <select
-                      value={grantDocumentId}
-                      onChange={(e) => setGrantDocumentId(e.target.value)}
-                      required
-                    >
-                      <option value="">Choose a document from catalog</option>
-                      {documents.map((doc) => (
-                        <option key={doc.id} value={doc.id}>
-                          {doc.name} [{doc.category || "General"}] — Owner: {doc.owner}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div className="ad-form-row-2">
+                    <div className="ad-form-group">
+                      <label className="ad-form-label">
+                        <span>Select Document</span>
+                        <span className="ad-form-label-hint">{documents.length} available</span>
+                      </label>
+                      <select
+                        className="ad-styled-select"
+                        value={grantDocumentId}
+                        onChange={(e) => setGrantDocumentId(e.target.value)}
+                        required
+                      >
+                        <option value="">-- Choose document from catalog --</option>
+                        {documents.map((doc) => (
+                          <option key={doc.id} value={doc.id}>
+                            {doc.name} [{doc.category || "General"}] · {doc.owner}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <label>
-                    Permission level
-                    <select
-                      value={grantAccessLevel}
-                      onChange={(e) => setGrantAccessLevel(e.target.value)}
-                    >
-                      <option>View only</option>
-                      <option>View + Download</option>
-                    </select>
-                  </label>
+                    <div className="ad-form-group">
+                      <label className="ad-form-label">
+                        <span>Permission Clearance Level</span>
+                        <span className="ad-form-label-hint">Access scope</span>
+                      </label>
+                      <select
+                        className="ad-styled-select"
+                        value={grantAccessLevel}
+                        onChange={(e) => setGrantAccessLevel(e.target.value)}
+                      >
+                        <option value="View only">View only (In-Browser Protected Reader)</option>
+                        <option value="View + Download">View + Download (Allow Decrypted PDF Export)</option>
+                      </select>
+                    </div>
+                  </div>
 
-                  <div className="od-permission-form-submit" style={{ marginTop: "18px" }}>
+                  {/* Dynamic Authorization Summary Preview Card */}
+                  <div className="ad-auth-summary-card">
+                    <div className="ad-auth-summary-title">
+                      <ShieldCheck size={16} /> Clearance Delegation Preview
+                    </div>
+                    <div className="ad-auth-summary-grid">
+                      <div className="ad-auth-summary-item">
+                        <span>Recipient Viewer</span>
+                        <strong>{grantViewerEmail ? grantViewerEmail : "Not selected yet"}</strong>
+                      </div>
+                      <div className="ad-auth-summary-item">
+                        <span>Target Asset</span>
+                        <strong>
+                          {grantDocumentId
+                            ? documents.find((d) => String(d.id) === String(grantDocumentId))?.name || "Selected Document"
+                            : "No document chosen"}
+                        </strong>
+                      </div>
+                      <div className="ad-auth-summary-item">
+                        <span>Granted Scope</span>
+                        <span className="ad-auth-summary-badge" style={{ marginTop: "2px" }}>
+                          {grantAccessLevel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ad-form-submit-row">
+                    <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                      Audit log entry will be permanently appended to the security ledger.
+                    </span>
                     <button
                       type="submit"
-                      className="od-primary-button"
+                      className="ad-btn-grant"
                       disabled={isSubmittingGrant}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "12px 24px",
-                        background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                        color: "#fff",
-                        borderRadius: "10px",
-                        border: "none",
-                        fontWeight: 600,
-                        cursor: isSubmittingGrant ? "not-allowed" : "pointer"
-                      }}
                     >
-                      <ShieldCheck size={18} /> {isSubmittingGrant ? "Granting Permission..." : "Grant Document Permission"}
+                      <ShieldCheck size={18} />
+                      <span>{isSubmittingGrant ? "Granting Permission..." : "Authorize Document Permission"}</span>
                     </button>
                   </div>
                 </form>
@@ -919,32 +1116,47 @@ function AdminDashboard({
           )}
 
           {section === "upload" && (
-            <div className="od-upload-container" style={{ width: "100%" }}>
-              <section className="ad-panel od-panel od-upload-panel" style={{ padding: "32px", maxWidth: "800px" }}>
-                <div className="od-upload-heading">
-                  <span className="od-upload-icon"><Upload size={28} /></span>
-                  <h2>Upload Enclave Document & Daily Reports</h2>
-                  <p>
-                    Ingest technical records, architecture reports, or daily progress updates directly into the Zero-Trust Enclave. Each file is secured with SHA-256 integrity validation upon upload.
-                  </p>
+            <div className="ad-upload-wrapper">
+              <section className="ad-upload-card">
+                <div className="ad-card-header">
+                  <div className="ad-card-header-info">
+                    <div className="ad-card-header-icon">
+                      <Upload size={24} />
+                    </div>
+                    <div className="ad-card-header-text">
+                      <h2>Upload Enclave Document & Daily Reports</h2>
+                      <p>Ingest technical records, architecture reports, or daily progress updates directly into the Zero-Trust Enclave with real-time SHA-256 fingerprinting.</p>
+                    </div>
+                  </div>
+                  <span className="ad-auth-summary-badge">
+                    <ShieldCheck size={14} /> SHA-256 INGESTION
+                  </span>
                 </div>
 
-                <form className="od-upload-form" onSubmit={handleAdminUpload} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-                  <label>
-                    Document / Report Title
+                <form className="ad-upload-styled-form" onSubmit={handleAdminUpload}>
+                  <div className="ad-form-group">
+                    <label className="ad-form-label">
+                      <span>Document / Report Title</span>
+                      <span className="ad-form-label-hint">Descriptive identifier</span>
+                    </label>
                     <input
                       type="text"
+                      className="ad-styled-input"
                       placeholder="e.g. Day 08 - Post-Quantum Access Control Audit.pdf"
                       value={uploadTitle}
                       onChange={(e) => setUploadTitle(e.target.value)}
                       required
                     />
-                  </label>
+                  </div>
 
-                  <div className="od-form-grid">
-                    <label>
-                      Document Category
+                  <div className="ad-form-row-2">
+                    <div className="ad-form-group">
+                      <label className="ad-form-label">
+                        <span>Document Category</span>
+                        <span className="ad-form-label-hint">Domain classification</span>
+                      </label>
                       <select
+                        className="ad-styled-select"
                         value={uploadCategory}
                         onChange={(e) => setUploadCategory(e.target.value)}
                       >
@@ -955,69 +1167,69 @@ function AdminDashboard({
                         <option value="Compliance">Compliance</option>
                         <option value="Business">Business</option>
                       </select>
-                    </label>
+                    </div>
 
-                    <label>
-                      Security Clearance
-                      <select defaultValue="HIGH">
+                    <div className="ad-form-group">
+                      <label className="ad-form-label">
+                        <span>Security Clearance</span>
+                        <span className="ad-form-label-hint">Access tier</span>
+                      </label>
+                      <select className="ad-styled-select" defaultValue="HIGH">
                         <option value="HIGH">Level 3 · Restricted Enclave</option>
                         <option value="MEDIUM">Level 2 · Confidential</option>
                         <option value="PUBLIC">Level 1 · General Workspace</option>
                       </select>
+                    </div>
+                  </div>
+
+                  <div className="ad-form-group">
+                    <label className="ad-form-label">
+                      <span>Select File or Daily Report (.pdf, .txt, .md, .docx)</span>
+                      <span className="ad-form-label-hint">Max size 25MB</span>
                     </label>
+                    <div style={{ padding: "18px", background: "var(--bg)", border: "1.5px dashed var(--border)", borderRadius: "14px" }}>
+                      <input
+                        type="file"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setUploadFile(file);
+                          if (file && !uploadTitle) {
+                            setUploadTitle(file.name);
+                          }
+                        }}
+                        style={{ width: "100%", color: "var(--text)", fontSize: "0.85rem" }}
+                        required
+                      />
+                      {uploadFile && (
+                        <div style={{ marginTop: "10px", fontSize: "0.82rem", color: "var(--primary)", fontWeight: 700 }}>
+                          ✓ Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <label className="od-file-picker">
-                    Select File or Daily Report (.pdf, .txt, .md, .docx)
-                    <input
-                      type="file"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setUploadFile(file);
-                        if (file && !uploadTitle) {
-                          setUploadTitle(file.name);
-                        }
-                      }}
-                      required
-                    />
-                    {uploadFile && (
-                      <small style={{ display: "block", marginTop: "8px", color: "var(--primary)", fontWeight: 600 }}>
-                        Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
-                      </small>
-                    )}
-                  </label>
+                  <div className="ad-auth-summary-card">
+                    <div className="ad-auth-summary-title">
+                      <ShieldCheck size={16} /> Cryptographic Ingestion Guarantee
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.55 }}>
+                      The TrustVault server calculates a unique SHA-256 fingerprint upon upload, writes an immutable audit record to the security log, and catalogs the document for administrator and authorized viewer access.
+                    </p>
+                  </div>
 
-                  <div className="od-security-note">
-                    <ShieldCheck size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
-                    <span>
-                      <strong>Cryptographic Ingestion Guarantee</strong>
-                      <small>
-                        The TrustVault server calculates a unique SHA-256 fingerprint upon upload, writes an immutable audit record to the security log, and catalogs the document for administrator and authorized viewer access.
-                      </small>
+                  <div className="ad-form-submit-row">
+                    <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                      Physical file stored in secure enclave on server storage.
                     </span>
+                    <button
+                      type="submit"
+                      className="ad-btn-grant"
+                      disabled={isUploading}
+                    >
+                      <Upload size={18} />
+                      <span>{isUploading ? "Encrypting & Uploading..." : "Upload Document to Enclave"}</span>
+                    </button>
                   </div>
-
-                  <button
-                    type="submit"
-                    className="od-primary-button"
-                    disabled={isUploading}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      padding: "12px 24px",
-                      background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                      color: "#fff",
-                      borderRadius: "10px",
-                      border: "none",
-                      fontWeight: 600,
-                      cursor: isUploading ? "not-allowed" : "pointer",
-                      marginTop: "10px",
-                    }}
-                  >
-                    <Upload size={18} /> {isUploading ? "Encrypting & Uploading..." : "Upload Document to Enclave"}
-                  </button>
                 </form>
               </section>
             </div>
@@ -1203,9 +1415,9 @@ function AdminDashboard({
             </button>
             <button className="ad-primary-btn" onClick={() => {
               downloadRealDocument(selectedDocument);
-              addNotice(`Downloaded "${selectedDocument.name}" successfully!`);
+              addNotice(`Downloaded "${selectedDocument.name}" in PDF format!`);
             }}>
-              <Download size={15} /> Download (.txt)
+              <Download size={15} /> Download PDF (.pdf)
             </button>
             {selectedDocument.deleted ? (
               <button

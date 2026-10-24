@@ -235,9 +235,107 @@ END OF DOCUMENT - CONFIDENTIAL & PROPRIETARY TRUSTVAULT ASSET
 }
 
 /**
- * Downloads the actual physical file from the backend, with verified fallback
+ * Escapes characters for PDF string literals
+ */
+function escapePdf(str: string): string {
+  return str.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+/**
+ * Creates a valid, multi-page PDF Blob in standard PDF 1.4 format
+ */
+export function createPdfBlob(title: string, text: string, doc?: DocumentLike): Blob {
+  const lines = text.split("\n");
+  const maxLinesPerPage = 44;
+  const pages: string[][] = [];
+
+  for (let i = 0; i < lines.length; i += maxLinesPerPage) {
+    pages.push(lines.slice(i, i + maxLinesPerPage));
+  }
+  if (pages.length === 0) pages.push(["(No document content)"]);
+
+  let objCount = 2; // 1: catalog, 2: pages
+  const pageObjIds: number[] = [];
+  const contentObjIds: number[] = [];
+
+  for (let p = 0; p < pages.length; p++) {
+    objCount++;
+    pageObjIds.push(objCount);
+    objCount++;
+    contentObjIds.push(objCount);
+  }
+  objCount++;
+  const fontObjId = objCount;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets: Record<number, number> = {};
+
+  const addObj = (id: number, content: string) => {
+    offsets[id] = pdf.length;
+    pdf += `${id} 0 obj\n${content}\nendobj\n`;
+  };
+
+  // Catalog
+  addObj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+
+  // Pages
+  const kids = pageObjIds.map((id) => `${id} 0 R`).join(" ");
+  addObj(2, `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
+
+  // Document Pages
+  for (let p = 0; p < pages.length; p++) {
+    const pageId = pageObjIds[p];
+    const contentId = contentObjIds[p];
+
+    addObj(
+      pageId,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${contentId} 0 R /Resources << /Font << /F1 ${fontObjId} 0 R >> >> >>`
+    );
+
+    let stream = "BT\n";
+    stream += "/F1 11 Tf\n";
+    stream += `50 745 Td\n(${escapePdf(title)} - Page ${p + 1} of ${pages.length}) Tj\n`;
+    stream += "/F1 8.5 Tf\n";
+    stream += "0 -15 Td\n(================================================================================) Tj\n";
+
+    for (let l = 0; l < pages[p].length; l++) {
+      const rawLine = pages[p][l];
+      const cleanLine = rawLine.length > 92 ? rawLine.substring(0, 92) + "..." : rawLine;
+      stream += `0 -13 Td\n(${escapePdf(cleanLine)}) Tj\n`;
+    }
+
+    stream += "ET\n";
+
+    addObj(contentId, `<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+  }
+
+  // Font
+  addObj(fontObjId, "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>");
+
+  // xref
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objCount + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let i = 1; i <= objCount; i++) {
+    const offset = String(offsets[i] || 0).padStart(10, "0");
+    pdf += `${offset} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objCount + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+/**
+ * Downloads the actual physical file from the backend, with verified PDF fallback
  */
 export async function downloadRealDocument(doc?: DocumentLike, userEmail: string = ""): Promise<void> {
+  const baseName = doc?.name
+    ? doc.name.replace(/\.[^/.]+$/, "")
+    : doc?.title
+    ? doc.title.replace(/\.[^/.]+$/, "")
+    : "TrustVault_Document";
+  const filename = `${baseName}.pdf`;
+
   if (doc?.id && userEmail) {
     try {
       const emailParam = encodeURIComponent(userEmail.trim().toLowerCase());
@@ -247,7 +345,7 @@ export async function downloadRealDocument(doc?: DocumentLike, userEmail: string
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = doc.name || doc.title || "document";
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -255,20 +353,13 @@ export async function downloadRealDocument(doc?: DocumentLike, userEmail: string
         return;
       }
     } catch (e) {
-      console.warn("Backend direct download failed, using local fallback", e);
+      console.warn("Backend direct download failed, using local PDF generator", e);
     }
   }
 
   const content = generateDocumentText(doc);
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-
-  const baseName = doc?.name
-    ? doc.name.replace(/\.[^/.]+$/, "")
-    : doc?.title
-    ? doc.title.replace(/\.[^/.]+$/, "")
-    : "TrustVault_Document";
-  const filename = `${baseName}.txt`;
+  const pdfBlob = createPdfBlob(doc?.name || doc?.title || "TrustVault Document", content, doc);
+  const url = URL.createObjectURL(pdfBlob);
 
   const link = document.createElement("a");
   link.href = url;
@@ -351,6 +442,32 @@ export function openDocumentInNewTab(doc?: DocumentLike, userEmail: string = "")
       border-radius: 8px;
       border: 1px solid #1e293b;
     }
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+      }
+      .container {
+        max-width: 100% !important;
+        background: #ffffff !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      .actions, .btn-print, .btn-close {
+        display: none !important;
+      }
+      pre {
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #cccccc !important;
+      }
+      .badge {
+        border: 1px solid #000000 !important;
+        color: #000000 !important;
+      }
+    }
     .actions {
       margin-top: 25px;
       display: flex;
@@ -362,13 +479,20 @@ export function openDocumentInNewTab(doc?: DocumentLike, userEmail: string = "")
       color: #fff;
       border: none;
       padding: 9px 18px;
-      border-radius: 6px;
+      border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
       font-size: 0.88rem;
+      transition: all 0.2s;
     }
     button:hover {
       background: #1d4ed8;
+    }
+    .btn-secondary {
+      background: #334155;
+    }
+    .btn-secondary:hover {
+      background: #475569;
     }
   </style>
 </head>
@@ -377,14 +501,14 @@ export function openDocumentInNewTab(doc?: DocumentLike, userEmail: string = "")
     <div class="header">
       <div>
         <h1>${title}</h1>
-        <small style="color: #94a3b8;">TrustVault Zero-Trust Security Reader</small>
+        <small style="color: #94a3b8;">TrustVault Zero-Trust Security Reader · PDF Document Enclave</small>
       </div>
-      <span class="badge">CONFIDENTIAL</span>
+      <span class="badge">RESTRICTED · PDF</span>
     </div>
     <pre>${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
     <div class="actions">
-      <button onclick="window.print()">Print Document</button>
-      <button onclick="window.close()">Close Window</button>
+      <button onclick="window.print()">Print / Save as PDF</button>
+      <button class="btn-secondary" onclick="window.close()">Close Window</button>
     </div>
   </div>
 </body>
