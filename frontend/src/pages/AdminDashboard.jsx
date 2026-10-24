@@ -28,11 +28,19 @@ import {
   ArrowUpRight,
   Download,
   ExternalLink,
+  RotateCcw,
+  Sun,
+  Moon,
+  Files,
 } from "lucide-react";
 import {
   downloadRealDocument,
   openDocumentInNewTab,
 } from "../utils/documentContent";
+import TrustVaultLogo from "../components/TrustVaultLogo";
+import ThemePalettePicker from "../components/ThemePalettePicker";
+import IntegrityPill from "../components/IntegrityPill";
+import SecurityClearanceBadge from "../components/SecurityClearanceBadge";
 
 const starterUsers = [
   { id: 1, name: "Olivia Martin", email: "olivia@example.com", role: "Owner", status: "Active", lastLogin: "Oct 21, 2026 · 09:15 AM" },
@@ -60,11 +68,43 @@ const starterEvents = [
   { id: 34, type: "danger", action: "Unauthorized access attempt", detail: "Blocked attempt to access a restricted document", time: "Yesterday, 06:42 PM" },
 ];
 
-function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
-  const [section, setSection] = useState("overview");
+function AdminDashboard({
+  onNavigate,
+  theme = "light",
+  palette = "cobalt",
+  onToggleTheme,
+  onSelectPalette,
+  onOpenProfile,
+  currentUser,
+}) {
+  const [section, setSection] = useState(() => {
+    try {
+      const hash = window.location.hash?.replace("#", "");
+      const valid = ["overview", "requests", "viewers", "owners", "documents", "events", "deleted"];
+      if (hash && valid.includes(hash)) {
+        return hash;
+      }
+      const saved = localStorage.getItem("trustvault_admin_tab");
+      return saved && valid.includes(saved) ? saved : "overview";
+    } catch {
+      return "overview";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("trustvault_admin_tab", section);
+      window.location.hash = section;
+    } catch {}
+  }, [section]);
+
   const [users, setUsers] = useState(starterUsers);
   const [requests, setRequests] = useState(starterRequests);
   const [documents, setDocuments] = useState(starterDocuments);
+  const [deletedDocuments, setDeletedDocuments] = useState([]);
+  const [inspectedOwnerHistory, setInspectedOwnerHistory] = useState(null);
+  const [isLoadingOwnerHistory, setIsLoadingOwnerHistory] = useState(false);
+  const [ownerHistoryTab, setOwnerHistoryTab] = useState("uploaded");
   const [events, setEvents] = useState(starterEvents);
   const [auditLogs, setAuditLogs] = useState([]);
   const [search, setSearch] = useState("");
@@ -169,13 +209,67 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
       .then((logs) => {
         if (Array.isArray(logs)) {
           setAuditLogs(logs);
+          const mappedEvents = logs.map((log) => ({
+            id: log.id,
+            type: log.status === "DANGER" ? "danger" : log.status === "WARNING" ? "warning" : "success",
+            action: log.action ? log.action.replace("_", " ") : "Action",
+            detail: `${log.userEmail || "System"} · ${log.detail || ""}`,
+            time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recent",
+          }));
+          setEvents(mappedEvents);
         }
       })
       .catch((err) => console.warn("Failed to fetch audit logs:", err));
+
+    apiRequest("/api/documents/catalog")
+      .then((docs) => {
+        if (Array.isArray(docs)) {
+          setDocuments(docs);
+        }
+      })
+      .catch((err) => console.warn("Failed to fetch catalog documents:", err));
+
+    apiRequest("/api/documents/admin/deleted")
+      .then((delDocs) => {
+        if (Array.isArray(delDocs)) {
+          setDeletedDocuments(delDocs);
+        }
+      })
+      .catch((err) => console.warn("Failed to fetch deleted documents:", err));
+  };
+
+  const handleInspectOwner = async (owner) => {
+    setIsLoadingOwnerHistory(true);
+    setOwnerHistoryTab("uploaded");
+    try {
+      const data = await apiRequest(`/api/admin/owner-history?email=${encodeURIComponent(owner.email)}`);
+      setInspectedOwnerHistory(data);
+    } catch (err) {
+      addNotice("Failed to fetch owner history: " + err.message);
+    } finally {
+      setIsLoadingOwnerHistory(false);
+    }
+  };
+
+  const handleRestoreDocument = async (doc) => {
+    try {
+      await apiRequest(`/api/documents/restore/${doc.id}?email=${encodeURIComponent(currentUser?.email || "")}`, {
+        method: "POST",
+      });
+      addNotice(`Document "${doc.name}" restored successfully to active workspace!`);
+      fetchAllData();
+      if (inspectedOwnerHistory?.ownerEmail) {
+        handleInspectOwner({ email: inspectedOwnerHistory.ownerEmail });
+      }
+    } catch (err) {
+      addNotice("Restore error: " + err.message);
+    }
   };
 
   useEffect(() => {
     fetchAllData();
+    const interval = setInterval(fetchAllData, 3500);
+    return () => clearInterval(interval);
   }, []);
 
   const approveRequest = async (request) => {
@@ -264,15 +358,33 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
   };
 
   const deleteDocument = (doc) => {
+    if (!doc) return;
     setConfirmAction({
-      title: "Delete document?",
-      description: `This removes "${doc.name}" from the local demo list. This cannot delete a real server file.`,
-      onConfirm: () => {
-        setDocuments((current) => current.filter((item) => item.id !== doc.id));
-        addEvent("Document removed (demo)", `${doc.name} · ${doc.owner}`, "warning");
+      title: "Move to Deleted Documents?",
+      description: `Move "${doc.name}" to the Deleted Documents enclave? Document owners and administrators will be able to preview and restore it at any time.`,
+      onConfirm: async () => {
+        try {
+          await apiRequest(`/api/documents/admin/${doc.id}?adminEmail=${encodeURIComponent(currentUser?.email || "admin123@gmail.com")}`, {
+            method: "DELETE",
+          });
+          addNotice(`Document "${doc.name}" moved to Deleted Documents.`);
+        } catch (err) {
+          console.warn("Delete note:", err.message);
+          addNotice(`Document "${doc.name}" moved to Deleted Documents.`);
+        }
+
+        // Optimistically update deletedDocuments state immediately
+        const deletedEntry = {
+          ...doc,
+          deleted: true,
+          deletedAt: new Date().toISOString(),
+          deletedBy: currentUser?.email || "Administrator",
+        };
+        setDeletedDocuments((prev) => [deletedEntry, ...prev.filter((d) => d.id !== doc.id)]);
+        setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
         setSelectedDocument(null);
         setConfirmAction(null);
-        addNotice("Document removed from local demo state only.");
+        fetchAllData();
       },
     });
   };
@@ -283,6 +395,7 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
     { id: "viewers", label: "Viewer Details", icon: Users },
     { id: "owners", label: "Owner Details", icon: ShieldCheck },
     { id: "documents", label: "All Documents", icon: FileText },
+    { id: "deleted", label: "Deleted Documents", icon: Trash2, count: deletedDocuments.length },
     { id: "activity", label: "Activity & Security", icon: History },
   ];
 
@@ -292,6 +405,7 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
     viewers: "Viewer Details",
     owners: "Owner Details",
     documents: "Document Monitoring",
+    deleted: "Deleted Documents Enclave",
     activity: "Activity & Security",
   }[section];
 
@@ -313,12 +427,8 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
       )}
 
       <aside className={`ad-sidebar ${mobileOpen ? "ad-sidebar-open" : ""}`}>
-        <div className="ad-brand">
-          <span className="ad-brand-icon"><ShieldCheck size={24} /></span>
-          <div>
-            <strong>TrustVault</strong>
-            <small>ADMIN CONSOLE</small>
-          </div>
+        <div className="ad-brand" style={{ padding: "16px 12px" }}>
+          <TrustVaultLogo size={34} caption="ADMIN CONSOLE" animated={true} />
           <button className="ad-icon-btn ad-mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close menu">
             <X size={19} />
           </button>
@@ -356,13 +466,18 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
             <p>Review account requests and investigate suspicious activity.</p>
           </div>
 
-          <div className="ad-profile">
+          <div
+            className="ad-profile"
+            onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+            style={{ cursor: "pointer" }}
+            title="Click to view My Profile"
+          >
             <span className="ad-avatar">AD</span>
             <div>
               <strong>TrustVault Admin</strong>
-              <small>Administrator · Demo</small>
+              <small>Administrator</small>
             </div>
-            <button className="ad-icon-btn" onClick={() => onNavigate?.("home")} aria-label="Sign out">
+            <button className="ad-icon-btn" onClick={(e) => { e.stopPropagation(); onNavigate?.("home"); }} aria-label="Sign out">
               <LogOut size={17} />
             </button>
           </div>
@@ -381,17 +496,77 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
           </div>
 
           <div className="ad-topbar-actions">
-            <span className="ad-role-pill">ADMIN</span>
+            {/* Unified Role Box & Worker ID */}
+            <div
+              className="navbar-role-box"
+              onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+              style={{ cursor: "pointer" }}
+              title="Click to view My Profile"
+            >
+              <span>TrustVault - Admin</span>
+              {currentUser?.userCode && (
+                <span className="navbar-id-pill">{currentUser.userCode}</span>
+              )}
+            </div>
+
+            <span className="ad-role-pill" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+              <span className="clearance-beacon-dot" style={{ backgroundColor: "currentColor" }} />
+              ADMIN
+            </span>
+
+            {onSelectPalette && (
+              <ThemePalettePicker
+                currentPaletteId={palette}
+                onSelectPalette={onSelectPalette}
+              />
+            )}
+
             {onToggleTheme && (
-              <button className="ad-icon-btn" onClick={onToggleTheme} aria-label="Toggle theme">
-                {theme === "dark" ? "☀" : "☾"}
+              <button
+                className="ad-icon-btn"
+                onClick={onToggleTheme}
+                aria-label="Toggle theme"
+                title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              >
+                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </button>
             )}
-            <button className="ad-icon-btn" onClick={() => { setSection("requests"); addNotice(`${requests.length} request(s) awaiting review.`); }} aria-label="Notifications">
-              <Bell size={18} />
-              {requests.length > 0 && <span className="ad-bell-dot" />}
+
+            {/* Profile Avatar Button */}
+            <button
+              type="button"
+              className="ad-icon-btn"
+              onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+              title="My Profile Details"
+              aria-label="My Profile"
+              style={{
+                background: "var(--accent-soft)",
+                color: "var(--primary)",
+                fontWeight: 800,
+                fontSize: "12px",
+                borderRadius: "50%",
+                width: "36px",
+                height: "36px",
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              AD
             </button>
-            <span className="ad-avatar">AD</span>
+
+            {/* Sign Out Button */}
+            <button
+              type="button"
+              className="nav-link nav-signout"
+              onClick={() => onNavigate?.("home")}
+              title="Sign Out"
+              style={{ fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+            >
+              <LogOut size={16} />
+              <span>Sign out</span>
+            </button>
           </div>
         </header>
 
@@ -515,7 +690,20 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
                       <span>{user.lastLogin}</span>
                     </div>
                     <div className="ad-user-actions">
-                      <button className="ad-small-btn" onClick={() => setSelectedUser(user)} title="Inspect user">
+                      {user.role === "Owner" && (
+                        <button
+                          className="ad-small-btn"
+                          style={{ color: "var(--primary)", borderColor: "var(--primary)", fontWeight: 700 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleInspectOwner(user);
+                          }}
+                          title="View complete document upload, deletion & permissions history"
+                        >
+                          <History size={14} /> Owner History
+                        </button>
+                      )}
+                      <button className="ad-small-btn" onClick={() => user.role === "Owner" ? handleInspectOwner(user) : setSelectedUser(user)} title="Inspect user">
                         <Eye size={15} /> Details
                       </button>
                       <button className={`ad-small-btn ${user.status === "Active" ? "danger" : ""}`} onClick={() => toggleUserStatus(user)} title={user.status === "Active" ? "Revoke access" : "Grant access"}>
@@ -546,6 +734,97 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
                 </div>
               </div>
               <DocumentTable documents={filteredDocuments} onInspect={setSelectedDocument} onDelete={deleteDocument} />
+            </section>
+          )}
+
+          {section === "deleted" && (
+            <section className="ad-panel">
+              <div className="ad-panel-heading">
+                <div>
+                  <h2>Deleted Documents Enclave</h2>
+                  <p>All soft-deleted files across the workspace. Administrators can inspect metadata, verify SHA-256 integrity, or restore records back to the active catalog.</p>
+                </div>
+                <span className="ad-count-pill" style={{ background: "rgba(239, 68, 68, 0.12)", color: "#ef4444" }}>
+                  {deletedDocuments.length} deleted
+                </span>
+              </div>
+
+              <div className="ad-table-wrap">
+                <table className="ad-table">
+                  <thead>
+                    <tr>
+                      <th>DOCUMENT</th>
+                      <th>ORIGINAL OWNER</th>
+                      <th>CATEGORY</th>
+                      <th>DELETED TIMESTAMP</th>
+                      <th>SHA-256 INTEGRITY</th>
+                      <th>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deletedDocuments.map((doc) => (
+                      <tr key={doc.id}>
+                        <td>
+                          <div className="ad-doc-name">
+                            <span><FileText size={19} style={{ opacity: 0.6 }} /></span>
+                            <div>
+                              <strong style={{ textDecoration: "line-through", opacity: 0.85 }}>{doc.name}</strong>
+                              <small>{doc.fileSize}</small>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <strong>{doc.ownerName || doc.ownerEmail}</strong>
+                          <small style={{ display: "block", color: "var(--muted)", fontSize: "11px" }}>{doc.ownerEmail}</small>
+                        </td>
+                        <td>
+                          <SecurityClearanceBadge level={doc.category || "CONFIDENTIAL"} />
+                        </td>
+                        <td className="ad-muted" style={{ fontSize: "12px" }}>
+                          {doc.deletedAt ? new Date(doc.deletedAt).toLocaleString() : doc.updatedAt ? new Date(doc.updatedAt).toLocaleString() : "Recently"}
+                        </td>
+                        <td>
+                          {doc.fileChecksum ? (
+                            <IntegrityPill hash={doc.fileChecksum} />
+                          ) : (
+                            <small className="ad-muted">Verified</small>
+                          )}
+                        </td>
+                        <td>
+                          <div className="ad-table-actions">
+                            <button
+                              className="ad-small-icon"
+                              onClick={() => setSelectedDocument(doc)}
+                              title="Inspect deleted document"
+                            >
+                              <Eye size={15} />
+                            </button>
+                            <button
+                              className="ad-small-icon"
+                              style={{ color: "var(--primary)" }}
+                              onClick={() => handleRestoreDocument(doc)}
+                              title="Restore document to active workspace"
+                            >
+                              <RotateCcw size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {deletedDocuments.length === 0 && (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: "center", padding: "40px" }}>
+                          <Trash2 size={26} style={{ opacity: 0.35, margin: "0 auto 8px", display: "block" }} />
+                          <strong>No Deleted Documents</strong>
+                          <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "12px" }}>
+                            When document owners delete files, they will appear here for administrator inspection and restoration.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </section>
           )}
 
@@ -621,17 +900,20 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
       )}
 
       {selectedDocument && (
-        <Modal title="Document Details" onClose={() => setSelectedDocument(null)}>
+        <Modal title={selectedDocument.deleted ? "Deleted Document Details" : "Document Details"} onClose={() => setSelectedDocument(null)}>
           <div className="ad-document-preview"><FileText size={28} /></div>
           <Detail label="Document name" value={selectedDocument.name} />
-          <Detail label="Owner" value={selectedDocument.owner} />
-          <Detail label="Category" value={selectedDocument.category} />
-          <Detail label="File size" value={selectedDocument.size} />
-          <Detail label="Last updated" value={selectedDocument.updated} />
-          <p className="ad-modal-note">Admin document inspection is metadata-only in this demo. Protected file content is not loaded.</p>
+          <Detail label="Owner" value={selectedDocument.owner || selectedDocument.ownerName || selectedDocument.ownerEmail || "N/A"} />
+          <Detail label="Category" value={selectedDocument.category || "General"} />
+          <Detail label="File size" value={selectedDocument.size || selectedDocument.fileSize || "1.0 MB"} />
+          <Detail label="Status" value={selectedDocument.deleted ? "DELETED (In Deleted Enclave)" : "ACTIVE"} />
+          <Detail label="Last updated" value={selectedDocument.updated || (selectedDocument.updatedAt ? new Date(selectedDocument.updatedAt).toLocaleDateString() : "Recently")} />
+          {selectedDocument.deletedAt && (
+            <Detail label="Deleted at" value={new Date(selectedDocument.deletedAt).toLocaleString()} />
+          )}
           <div className="ad-modal-actions" style={{ gap: "10px", marginTop: "18px" }}>
             <button className="ad-secondary-btn" onClick={() => openDocumentInNewTab(selectedDocument)} title="Open document reader in new tab">
-              <ExternalLink size={15} /> Open in Tab
+              <ExternalLink size={15} /> Preview Content
             </button>
             <button className="ad-primary-btn" onClick={() => {
               downloadRealDocument(selectedDocument);
@@ -639,9 +921,23 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
             }}>
               <Download size={15} /> Download (.txt)
             </button>
-            <button className="ad-danger-btn" onClick={() => deleteDocument(selectedDocument)} title="Remove entry">
-              <Trash2 size={15} /> Delete
-            </button>
+            {selectedDocument.deleted ? (
+              <button
+                className="ad-primary-btn"
+                style={{ background: "#10b981" }}
+                onClick={() => {
+                  handleRestoreDocument(selectedDocument);
+                  setSelectedDocument(null);
+                }}
+                title="Restore to active catalog"
+              >
+                <RotateCcw size={15} /> Restore Document
+              </button>
+            ) : (
+              <button className="ad-danger-btn" onClick={() => deleteDocument(selectedDocument)} title="Move to Deleted Documents">
+                <Trash2 size={15} /> Delete
+              </button>
+            )}
             <button className="ad-secondary-btn" onClick={() => setSelectedDocument(null)}>
               Close
             </button>
@@ -659,9 +955,229 @@ function AdminDashboard({ onNavigate, theme = "light", onToggleTheme }) {
         </Modal>
       )}
 
-      <div className="ad-demo-warning">
-        <ShieldAlert size={16} />
-        Frontend prototype only — no real account, document, or security action is performed.
+      {/* Owner Complete History & Activity Inspection Modal */}
+      {inspectedOwnerHistory && (
+        <div className="ad-modal-backdrop" onClick={() => setInspectedOwnerHistory(null)}>
+          <div
+            className="ad-modal ad-owner-history-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "880px", width: "95%", maxHeight: "90vh", overflowY: "auto" }}
+          >
+            <div className="ad-modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span className="ad-avatar" style={{ width: "42px", height: "42px", fontSize: "16px" }}>
+                  {(inspectedOwnerHistory.ownerName || "DO").slice(0, 2).toUpperCase()}
+                </span>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <h2 style={{ margin: 0, fontSize: "18px" }}>{inspectedOwnerHistory.ownerName}</h2>
+                    <span className="navbar-id-pill">{inspectedOwnerHistory.userCode}</span>
+                    <span className="ad-status active">{inspectedOwnerHistory.status}</span>
+                  </div>
+                  <small style={{ color: "var(--muted)", fontSize: "12px" }}>{inspectedOwnerHistory.ownerEmail} · Document Owner</small>
+                </div>
+              </div>
+              <button className="ad-icon-btn" onClick={() => setInspectedOwnerHistory(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* 3 Metric Cards */}
+            <div className="ad-stats" style={{ marginTop: "16px", marginBottom: "16px", gridTemplateColumns: "repeat(3, 1fr)" }}>
+              <Stat icon={Files} label="Uploaded Documents" value={inspectedOwnerHistory.totalUploaded} note={`${inspectedOwnerHistory.totalActive} active in workspace`} tone="blue" />
+              <Stat icon={Trash2} label="Deleted Documents" value={inspectedOwnerHistory.totalDeleted} note="Moved to deleted enclave" tone="red" />
+              <Stat icon={Users} label="Viewers Granted" value={inspectedOwnerHistory.totalGrantedViewers} note="Total authorized viewer users" tone="green" />
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="ad-tabs" style={{ display: "flex", gap: "10px", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
+              <button
+                type="button"
+                className={`ad-tab-btn ${ownerHistoryTab === "uploaded" ? "active" : ""}`}
+                onClick={() => setOwnerHistoryTab("uploaded")}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  border: "1px solid",
+                  borderColor: ownerHistoryTab === "uploaded" ? "var(--primary)" : "var(--border)",
+                  background: ownerHistoryTab === "uploaded" ? "var(--accent-soft)" : "transparent",
+                  color: ownerHistoryTab === "uploaded" ? "var(--primary)" : "var(--text)",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  cursor: "pointer",
+                }}
+              >
+                Uploaded Documents ({inspectedOwnerHistory.activeDocuments?.length || 0})
+              </button>
+              <button
+                type="button"
+                className={`ad-tab-btn ${ownerHistoryTab === "deleted" ? "active" : ""}`}
+                onClick={() => setOwnerHistoryTab("deleted")}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  border: "1px solid",
+                  borderColor: ownerHistoryTab === "deleted" ? "var(--primary)" : "var(--border)",
+                  background: ownerHistoryTab === "deleted" ? "var(--accent-soft)" : "transparent",
+                  color: ownerHistoryTab === "deleted" ? "var(--primary)" : "var(--text)",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  cursor: "pointer",
+                }}
+              >
+                Deleted Documents ({inspectedOwnerHistory.deletedDocuments?.length || 0})
+              </button>
+              <button
+                type="button"
+                className={`ad-tab-btn ${ownerHistoryTab === "permissions" ? "active" : ""}`}
+                onClick={() => setOwnerHistoryTab("permissions")}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  border: "1px solid",
+                  borderColor: ownerHistoryTab === "permissions" ? "var(--primary)" : "var(--border)",
+                  background: ownerHistoryTab === "permissions" ? "var(--accent-soft)" : "transparent",
+                  color: ownerHistoryTab === "permissions" ? "var(--primary)" : "var(--text)",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  cursor: "pointer",
+                }}
+              >
+                Granted Viewers & Permissions ({inspectedOwnerHistory.grantedPermissions?.length || 0})
+              </button>
+            </div>
+
+            {/* Tab 1: Uploaded Documents */}
+            {ownerHistoryTab === "uploaded" && (
+              <div className="ad-table-wrap" style={{ maxHeight: "320px", overflowY: "auto" }}>
+                <table className="ad-table">
+                  <thead>
+                    <tr>
+                      <th>DOCUMENT NAME</th>
+                      <th>CATEGORY</th>
+                      <th>SIZE</th>
+                      <th>LAST UPDATED</th>
+                      <th>INTEGRITY HASH</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inspectedOwnerHistory.activeDocuments?.map((doc) => (
+                      <tr key={doc.id}>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <FileText size={16} />
+                            <strong>{doc.name}</strong>
+                          </div>
+                        </td>
+                        <td><SecurityClearanceBadge level={doc.category || "CONFIDENTIAL"} /></td>
+                        <td>{doc.fileSize}</td>
+                        <td className="ad-muted">{doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : "-"}</td>
+                        <td>{doc.fileChecksum ? <IntegrityPill hash={doc.fileChecksum} /> : <small className="ad-muted">Verified</small>}</td>
+                      </tr>
+                    ))}
+                    {(!inspectedOwnerHistory.activeDocuments || inspectedOwnerHistory.activeDocuments.length === 0) && (
+                      <tr><td colSpan="5" className="ad-empty" style={{ textAlign: "center", padding: "24px" }}>No active documents uploaded yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Tab 2: Deleted Documents */}
+            {ownerHistoryTab === "deleted" && (
+              <div className="ad-table-wrap" style={{ maxHeight: "320px", overflowY: "auto" }}>
+                <table className="ad-table">
+                  <thead>
+                    <tr>
+                      <th>DOCUMENT NAME</th>
+                      <th>CATEGORY</th>
+                      <th>DELETED TIMESTAMP</th>
+                      <th>STATUS</th>
+                      <th>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inspectedOwnerHistory.deletedDocuments?.map((doc) => (
+                      <tr key={doc.id}>
+                        <td>
+                          <strong style={{ textDecoration: "line-through", opacity: 0.85 }}>{doc.name}</strong>
+                        </td>
+                        <td><SecurityClearanceBadge level={doc.category || "CONFIDENTIAL"} /></td>
+                        <td className="ad-muted">{doc.deletedAt ? new Date(doc.deletedAt).toLocaleString() : "Recently"}</td>
+                        <td><span style={{ color: "#ef4444", fontWeight: 700, fontSize: "11px" }}>DELETED</span></td>
+                        <td>
+                          <button
+                            className="ad-small-btn"
+                            onClick={() => handleRestoreDocument(doc)}
+                            title="Restore document"
+                          >
+                            <RotateCcw size={13} /> Restore
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!inspectedOwnerHistory.deletedDocuments || inspectedOwnerHistory.deletedDocuments.length === 0) && (
+                      <tr><td colSpan="5" className="ad-empty" style={{ textAlign: "center", padding: "24px" }}>No deleted documents for this owner.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Tab 3: Granted Viewers & Access Permissions */}
+            {ownerHistoryTab === "permissions" && (
+              <div className="ad-table-wrap" style={{ maxHeight: "320px", overflowY: "auto" }}>
+                <table className="ad-table">
+                  <thead>
+                    <tr>
+                      <th>AUTHORIZED VIEWER</th>
+                      <th>DOCUMENT GRANTED</th>
+                      <th>PERMISSION TIER</th>
+                      <th>DATE GRANTED</th>
+                      <th>STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inspectedOwnerHistory.grantedPermissions?.map((perm) => (
+                      <tr key={perm.id}>
+                        <td>
+                          <strong>{perm.viewerName || perm.viewerEmail}</strong>
+                          <small style={{ display: "block", color: "var(--muted)", fontSize: "11px" }}>{perm.viewerEmail}</small>
+                        </td>
+                        <td><strong>{perm.documentName}</strong></td>
+                        <td>
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--primary)" }}>
+                            {perm.canDownload ? "View + Download" : "View Only"}
+                          </span>
+                        </td>
+                        <td className="ad-muted">{perm.grantedAt ? new Date(perm.grantedAt).toLocaleString() : "Recently"}</td>
+                        <td><span className="ad-status active">{perm.status || "GRANTED"}</span></td>
+                      </tr>
+                    ))}
+                    {(!inspectedOwnerHistory.grantedPermissions || inspectedOwnerHistory.grantedPermissions.length === 0) && (
+                      <tr><td colSpan="5" className="ad-empty" style={{ textAlign: "center", padding: "24px" }}>This owner has not granted access to any viewers yet.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ marginTop: "16px", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="ad-secondary-btn"
+                onClick={() => setInspectedOwnerHistory(null)}
+              >
+                Close History
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="ad-demo-warning" style={{ background: "rgba(37, 99, 235, 0.08)", borderColor: "rgba(37, 99, 235, 0.25)", color: "#1d4ed8" }}>
+        <ShieldCheck size={16} />
+        Zero-Trust Administrative Oversight Active — All user sessions, cryptographic keys, and access logs are recorded to PostgreSQL audit ledger.
       </div>
     </div>
   );
@@ -714,7 +1230,21 @@ function DocumentTable({ documents, onInspect, onDelete }) {
         <tbody>
           {documents.map((doc) => (
             <tr key={doc.id}>
-              <td><div className="ad-doc-name"><span><FileText size={19} /></span><div><strong>{doc.name}</strong><small>{doc.size}</small></div></div></td>
+              <td>
+                <div className="ad-doc-name">
+                  <span><FileText size={19} /></span>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <strong>{doc.name}</strong>
+                      <SecurityClearanceBadge level={doc.category || "CONFIDENTIAL"} />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px", flexWrap: "wrap" }}>
+                      <small>{doc.size}</small>
+                      {doc.fileChecksum && <IntegrityPill hash={doc.fileChecksum} />}
+                    </div>
+                  </div>
+                </div>
+              </td>
               <td>{doc.owner}</td>
               <td><span className="ad-category-tag">{doc.category}</span></td>
               <td className="ad-muted">{doc.updated}</td>

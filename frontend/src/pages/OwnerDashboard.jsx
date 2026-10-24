@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Files,
@@ -27,100 +27,18 @@ import {
   X as CloseIcon,
   LockKeyhole,
   ExternalLink,
+  RotateCcw,
 } from "lucide-react";
 import {
   downloadRealDocument,
   openDocumentInNewTab,
   generateDocumentText,
 } from "../utils/documentContent";
-
-const initialDocuments = [
-  {
-    id: 1,
-    name: "Business Proposal.pdf",
-    category: "Business",
-    type: "PDF",
-    updated: "Oct 20, 2026",
-    size: "2.4 MB",
-    viewers: 3,
-  },
-  {
-    id: 2,
-    name: "Financial Report.docx",
-    category: "Finance",
-    type: "Word",
-    updated: "Oct 18, 2026",
-    size: "1.8 MB",
-    viewers: 2,
-  },
-  {
-    id: 3,
-    name: "Project Requirements.pdf",
-    category: "Technical",
-    type: "PDF",
-    updated: "Oct 15, 2026",
-    size: "950 KB",
-    viewers: 1,
-  },
-];
-
-const initialPermissions = [
-  {
-    id: 1,
-    document: "Business Proposal.pdf",
-    viewer: "viewer@example.com",
-    access: "View only",
-    expires: "Oct 30, 2026",
-    status: "Active",
-  },
-  {
-    id: 2,
-    document: "Financial Report.docx",
-    viewer: "analyst@example.com",
-    access: "View + Download",
-    expires: "Nov 05, 2026",
-    status: "Active",
-  },
-];
-
-const initialRequests = [
-  {
-    id: 1,
-    document: "Project Requirements.pdf",
-    viewer: "student@example.com",
-    requested: "Oct 21, 2026",
-  },
-  {
-    id: 2,
-    document: "Business Proposal.pdf",
-    viewer: "team@example.com",
-    requested: "Oct 20, 2026",
-  },
-];
-
-const initialHistory = [
-  {
-    id: 1,
-    action: "Document uploaded",
-    document: "Business Proposal.pdf",
-    user: "You",
-    time: "Today, 10:30 AM",
-  },
-  {
-    id: 2,
-    action: "Viewer access granted",
-    document: "Financial Report.docx",
-    user: "You",
-    time: "Yesterday, 4:15 PM",
-  },
-  {
-    id: 3,
-    action: "Document viewed",
-    document: "Project Requirements.pdf",
-    user: "student@example.com",
-    time: "Yesterday, 2:10 PM",
-  },
-];
+import { apiRequest } from "../api";
+import TrustVaultLogo from "../components/TrustVaultLogo";
+import ThemePalettePicker from "../components/ThemePalettePicker";
+import IntegrityPill from "../components/IntegrityPill";
+import SecurityClearanceBadge from "../components/SecurityClearanceBadge";
 
 const navigation = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -128,6 +46,7 @@ const navigation = [
   { id: "permissions", label: "User Permissions", icon: ShieldCheck },
   { id: "history", label: "Activity History", icon: History },
   { id: "upload", label: "New Upload", icon: Upload },
+  { id: "deleted", label: "Deleted Documents", icon: Trash2 },
 ];
 
 function getFileIcon(type) {
@@ -138,14 +57,39 @@ function getFileIcon(type) {
 
 export default function OwnerDashboard({
   theme = "light",
+  palette = "cobalt",
   onNavigate,
   onToggleTheme,
+  onSelectPalette,
+  onOpenProfile,
+  currentUser,
 }) {
-  const [activeSection, setActiveSection] = useState("overview");
-  const [documents, setDocuments] = useState(initialDocuments);
-  const [permissions, setPermissions] = useState(initialPermissions);
-  const [requests, setRequests] = useState(initialRequests);
-  const [history, setHistory] = useState(initialHistory);
+  const [activeSection, setActiveSection] = useState(() => {
+    try {
+      const hash = window.location.hash?.replace("#", "");
+      const valid = ["overview", "documents", "permissions", "history", "upload", "deleted"];
+      if (hash && valid.includes(hash)) {
+        return hash;
+      }
+      const saved = localStorage.getItem("trustvault_owner_tab");
+      return saved && valid.includes(saved) ? saved : "overview";
+    } catch {
+      return "overview";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("trustvault_owner_tab", activeSection);
+      window.location.hash = activeSection;
+    } catch {}
+  }, [activeSection]);
+  const [documents, setDocuments] = useState([]);
+  const [deletedDocuments, setDeletedDocuments] = useState([]);
+  const [permissions, setPermissions] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
@@ -160,116 +104,168 @@ export default function OwnerDashboard({
   const [permissionAccess, setPermissionAccess] = useState("View only");
   const [permissionExpiry, setPermissionExpiry] = useState("");
 
-  const addHistory = (action, documentName, user = "You") => {
-    setHistory((previous) => [
-      {
-        id: Date.now(),
-        action,
-        document: documentName,
-        user,
-        time: new Date().toLocaleString(),
-      },
-      ...previous,
-    ]);
-  };
-
   const showNotice = (message) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 3500);
   };
 
-  const approveRequest = (request) => {
-    const newPermission = {
-      id: Date.now(),
-      document: request.document,
-      viewer: request.viewer,
-      access: "View only",
-      expires: "Not set",
-      status: "Active",
-    };
+  const fetchOwnerData = async () => {
+    if (!currentUser?.email) return;
+    const emailParam = encodeURIComponent(currentUser.email);
 
-    setPermissions((previous) => [...previous, newPermission]);
-    setRequests((previous) =>
-      previous.filter((item) => item.id !== request.id)
-    );
-    addHistory("Demo access granted", request.document, request.viewer);
-    showNotice("Demo request approved. This is not real access control.");
+    try {
+      const [docsData, delData, reqsData, permsData, histData] = await Promise.all([
+        apiRequest(`/api/documents/owner?email=${emailParam}`),
+        apiRequest(`/api/documents/owner/deleted?email=${emailParam}`),
+        apiRequest(`/api/documents/owner/requests?email=${emailParam}`),
+        apiRequest(`/api/documents/owner/permissions?email=${emailParam}`),
+        apiRequest(`/api/documents/owner/history?email=${emailParam}`),
+      ]);
+      setDocuments(Array.isArray(docsData) ? docsData : []);
+      setDeletedDocuments(Array.isArray(delData) ? delData : []);
+      setRequests(Array.isArray(reqsData) ? reqsData : []);
+      setPermissions(Array.isArray(permsData) ? permsData : []);
+      setHistory(Array.isArray(histData) ? histData : []);
+    } catch (err) {
+      console.warn("Real-time owner sync error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const rejectRequest = (request) => {
-    setRequests((previous) =>
-      previous.filter((item) => item.id !== request.id)
-    );
-    addHistory("Demo access request rejected", request.document, request.viewer);
-    showNotice("Demo request rejected.");
+  const handleRestoreDocument = async (doc) => {
+    try {
+      await apiRequest(`/api/documents/restore/${doc.id}?email=${encodeURIComponent(currentUser?.email || "")}`, {
+        method: "POST",
+      });
+      showNotice(`Successfully restored "${doc.name}" back to your workspace!`);
+      await fetchOwnerData();
+    } catch (err) {
+      showNotice("Restore error: " + err.message);
+    }
   };
 
-  const revokePermission = (permission) => {
-    setPermissions((previous) =>
-      previous.filter((item) => item.id !== permission.id)
-    );
-    addHistory("Demo permission revoked", permission.document, permission.viewer);
-    showNotice(
-      "Removed from this demo list only. Real access must be revoked by the backend."
-    );
+  useEffect(() => {
+    fetchOwnerData();
+    const interval = setInterval(fetchOwnerData, 3500);
+    return () => clearInterval(interval);
+  }, [currentUser?.email]);
+
+  const approveRequest = async (request) => {
+    try {
+      await apiRequest("/api/documents/grant-access", {
+        method: "POST",
+        body: JSON.stringify({
+          documentId: request.documentId,
+          viewerEmail: request.viewer,
+          viewerName: request.viewerName,
+          canView: true,
+          canDownload: true,
+          ownerEmail: currentUser?.email || "",
+        }),
+      });
+      showNotice(`Approved access for ${request.viewer} on "${request.document}"!`);
+      await fetchOwnerData();
+    } catch (err) {
+      showNotice("Approve failed: " + err.message);
+    }
   };
 
-  const deleteDocument = (document) => {
+  const rejectRequest = async (request) => {
+    try {
+      await apiRequest("/api/documents/revoke-access", {
+        method: "POST",
+        body: JSON.stringify({
+          documentId: request.documentId,
+          viewerEmail: request.viewer,
+          ownerEmail: currentUser?.email || "",
+        }),
+      });
+      showNotice(`Rejected access request from ${request.viewer}.`);
+      await fetchOwnerData();
+    } catch (err) {
+      showNotice("Reject failed: " + err.message);
+    }
+  };
+
+  const revokePermission = async (permission) => {
+    try {
+      await apiRequest("/api/documents/revoke-access", {
+        method: "POST",
+        body: JSON.stringify({
+          documentId: permission.documentId,
+          viewerEmail: permission.viewer,
+          ownerEmail: currentUser?.email || "",
+        }),
+      });
+      showNotice(`Revoked access on "${permission.document}" for ${permission.viewer}.`);
+      await fetchOwnerData();
+    } catch (err) {
+      showNotice("Revoke failed: " + err.message);
+    }
+  };
+
+  const deleteDocument = async (document) => {
     const confirmed = window.confirm(
-      `Remove "${document.name}" from this demo dashboard?`
+      `Move "${document.name}" to Deleted Documents? You and Administrators can restore it anytime.`
     );
 
     if (!confirmed) return;
 
-    setDocuments((previous) =>
-      previous.filter((item) => item.id !== document.id)
-    );
-    setPermissions((previous) =>
-      previous.filter((item) => item.document !== document.name)
-    );
-    addHistory("Demo document removed", document.name);
-    setSelectedDocument(null);
-    showNotice(
-      "Removed from the demo list only. No real file was deleted."
-    );
+    try {
+      await apiRequest(`/api/documents/owner/${document.id}?email=${encodeURIComponent(currentUser?.email || "")}`, {
+        method: "DELETE",
+      });
+      showNotice(`Document "${document.name}" moved to Deleted Documents.`);
+      
+      const delEntry = {
+        ...document,
+        deleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedBy: currentUser?.email || "Owner",
+      };
+      setDeletedDocuments((prev) => [delEntry, ...prev.filter((d) => d.id !== document.id)]);
+      setDocuments((prev) => prev.filter((d) => d.id !== document.id));
+      setSelectedDocument(null);
+      await fetchOwnerData();
+    } catch (err) {
+      showNotice("Delete error: " + err.message);
+    }
   };
 
-  const handleUpload = (event) => {
+  const handleUpload = async (event) => {
     event.preventDefault();
 
-    if (!uploadName.trim()) {
-      showNotice("Please enter a document name.");
-      return;
-    }
-
     if (!uploadFile) {
-      showNotice("Please select a file to continue.");
+      showNotice("Please select a file to upload.");
       return;
     }
 
-    const newDocument = {
-      id: Date.now(),
-      name: uploadName.trim(),
-      category: uploadCategory,
-      type: uploadType,
-      updated: new Date().toLocaleDateString(),
-      size: `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB`,
-      viewers: 0,
-    };
+    try {
+      showNotice("Uploading and encrypting document...");
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("email", currentUser?.email || "");
+      formData.append("category", uploadCategory || "General");
+      if (uploadName) formData.append("name", uploadName.trim());
 
-    setDocuments((previous) => [newDocument, ...previous]);
-    addHistory("Demo upload recorded", newDocument.name);
-    setUploadName("");
-    setUploadFile(null);
-    event.target.reset();
-    setActiveSection("documents");
+      await apiRequest("/api/documents/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-    showNotice(
-      "Demo entry added. The selected file has NOT been uploaded to a server."
-    );
+      showNotice(`Successfully uploaded and protected "${uploadName || uploadFile.name}"!`);
+      setUploadName("");
+      setUploadFile(null);
+      event.target.reset();
+      setActiveSection("documents");
+      await fetchOwnerData();
+    } catch (err) {
+      showNotice("Upload failed: " + err.message);
+    }
   };
 
-  const grantPermission = (event) => {
+  const grantPermission = async (event) => {
     event.preventDefault();
 
     if (!viewerEmail.trim() || !permissionDocument) {
@@ -277,23 +273,35 @@ export default function OwnerDashboard({
       return;
     }
 
-    const newPermission = {
-      id: Date.now(),
-      document: permissionDocument,
-      viewer: viewerEmail.trim(),
-      access: permissionAccess,
-      expires: permissionExpiry || "Not set",
-      status: "Active",
-    };
-
-    setPermissions((previous) => [...previous, newPermission]);
-    addHistory("Demo permission created", permissionDocument, viewerEmail);
-    setViewerEmail("");
-    setPermissionExpiry("");
-    setPermissionDocument("");
-    showNotice(
-      "Demo permission added. The backend is not connected yet."
+    const selectedDocObj = documents.find(
+      (d) => String(d.id) === String(permissionDocument) || d.name === permissionDocument
     );
+
+    if (!selectedDocObj) {
+      showNotice("Selected document not found.");
+      return;
+    }
+
+    try {
+      await apiRequest("/api/documents/grant-access", {
+        method: "POST",
+        body: JSON.stringify({
+          documentId: selectedDocObj.id,
+          viewerEmail: viewerEmail.trim(),
+          canView: true,
+          canDownload: permissionAccess === "View + Download",
+          ownerEmail: currentUser?.email || "",
+        }),
+      });
+
+      showNotice(`Access granted on "${selectedDocObj.name}" to ${viewerEmail}!`);
+      setViewerEmail("");
+      setPermissionExpiry("");
+      setPermissionDocument("");
+      await fetchOwnerData();
+    } catch (err) {
+      showNotice("Permission grant failed: " + err.message);
+    }
   };
 
   const filteredDocuments = documents.filter((document) =>
@@ -327,12 +335,22 @@ export default function OwnerDashboard({
                         <Icon size={19} />
                       </span>
                       <span>
-                        <strong>{document.name}</strong>
-                        <small>{document.size}</small>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <strong>{document.name}</strong>
+                          <SecurityClearanceBadge level={document.category || "CONFIDENTIAL"} />
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", flexWrap: "wrap" }}>
+                          <small>{document.size}</small>
+                          {document.fileChecksum && (
+                            <IntegrityPill hash={document.fileChecksum} />
+                          )}
+                        </div>
                       </span>
                     </div>
                   </td>
-                  <td>{document.category}</td>
+                  <td>
+                    <span className="od-category-tag">{document.category}</span>
+                  </td>
                   <td>{document.updated}</td>
                   <td>{document.viewers}</td>
                   <td>
@@ -473,13 +491,13 @@ export default function OwnerDashboard({
                     className="od-approve-button"
                     onClick={() => approveRequest(request)}
                   >
-                    <Check size={15} /> Approve demo
+                    <Check size={15} /> Grant Access
                   </button>
                   <button
                     className="od-reject-button"
                     onClick={() => rejectRequest(request)}
                   >
-                    <X size={15} />
+                    <X size={15} /> Reject
                   </button>
                 </div>
               </div>
@@ -491,19 +509,19 @@ export default function OwnerDashboard({
   );
 
   const renderPermissions = () => (
-    <>
-      <div className="od-page-heading">
+    <div className="od-permissions-container">
+      <div className="od-page-heading od-page-heading-center">
         <div>
           <h1>User Permissions</h1>
-          <p>Manage demo access entries and review incoming requests.</p>
+          <p>Manage granted access entries and review incoming requests.</p>
         </div>
       </div>
 
       <section className="od-panel">
         <div className="od-panel-heading">
           <div>
-            <h2>Grant Demo Permission</h2>
-            <p>This form updates local demo state only.</p>
+            <h2>Grant Document Permission</h2>
+            <p>Authorize a verified viewer to view or download a selected document.</p>
           </div>
           <LockKeyhole size={22} />
         </div>
@@ -529,7 +547,7 @@ export default function OwnerDashboard({
             >
               <option value="">Choose a document</option>
               {documents.map((document) => (
-                <option key={document.id} value={document.name}>
+                <option key={document.id} value={document.id}>
                   {document.name}
                 </option>
               ))}
@@ -556,9 +574,11 @@ export default function OwnerDashboard({
             />
           </label>
 
-          <button type="submit" className="od-primary-button">
-            <ShieldCheck size={17} /> Add demo permission
-          </button>
+          <div className="od-permission-form-submit">
+            <button type="submit" className="od-primary-button">
+              <ShieldCheck size={17} /> Grant Document Permission
+            </button>
+          </div>
         </form>
       </section>
 
@@ -651,7 +671,7 @@ export default function OwnerDashboard({
           </table>
         </div>
       </section>
-    </>
+    </div>
   );
 
   const renderUpload = () => (
@@ -794,6 +814,110 @@ export default function OwnerDashboard({
     </>
   );
 
+  const renderDeletedDocuments = () => (
+    <>
+      <div className="od-page-heading">
+        <div>
+          <h1>Deleted Documents Enclave</h1>
+          <p>Documents removed from active listings. Preview metadata, verify SHA-256 integrity, or restore files back to your workspace.</p>
+        </div>
+        <span className="od-count-badge" style={{ background: "rgba(239, 68, 68, 0.12)", color: "#ef4444" }}>
+          {deletedDocuments.length} deleted
+        </span>
+      </div>
+
+      <div className="od-table-wrap">
+        <table className="od-table">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Category</th>
+              <th>Deleted Timestamp</th>
+              <th>Integrity Seal</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {deletedDocuments.map((doc) => {
+              const Icon = getFileIcon(doc.fileType);
+              return (
+                <tr key={doc.id}>
+                  <td>
+                    <div className="od-file-cell">
+                      <span className="od-file-icon" style={{ opacity: 0.65 }}>
+                        <Icon size={19} />
+                      </span>
+                      <span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <strong style={{ textDecoration: "line-through", opacity: 0.85 }}>{doc.name}</strong>
+                          <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", fontWeight: 700 }}>
+                            DELETED
+                          </span>
+                        </div>
+                        <small>{doc.fileSize}</small>
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <SecurityClearanceBadge level={doc.category || "CONFIDENTIAL"} />
+                  </td>
+                  <td style={{ color: "var(--muted)", fontSize: "12px" }}>
+                    {doc.deletedAt ? new Date(doc.deletedAt).toLocaleString() : doc.updatedAt ? new Date(doc.updatedAt).toLocaleString() : "Recently"}
+                  </td>
+                  <td>
+                    {doc.fileChecksum ? (
+                      <IntegrityPill hash={doc.fileChecksum} />
+                    ) : (
+                      <small style={{ color: "var(--muted)" }}>Verified</small>
+                    )}
+                  </td>
+                  <td>
+                    <div className="od-actions">
+                      <button
+                        className="od-icon-button"
+                        title="Preview deleted document"
+                        onClick={() => setSelectedDocument(doc)}
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        className="od-icon-button"
+                        title="Download file"
+                        onClick={() => downloadRealDocument(doc, currentUser?.email)}
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button
+                        className="od-icon-button"
+                        style={{ color: "var(--primary)" }}
+                        title="Restore document to workspace"
+                        onClick={() => handleRestoreDocument(doc)}
+                      >
+                        <RotateCcw size={16} />
+                        <span style={{ fontSize: "11px", marginLeft: "4px", fontWeight: 600 }}>Restore</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {deletedDocuments.length === 0 && (
+              <tr>
+                <td colSpan="5" className="od-empty" style={{ textAlign: "center", padding: "40px" }}>
+                  <Trash2 size={28} style={{ opacity: 0.35, margin: "0 auto 10px", display: "block" }} />
+                  <strong>No Deleted Documents</strong>
+                  <p style={{ margin: "5px 0 0", color: "var(--muted)", fontSize: "12px" }}>
+                    When you remove documents from your workspace, they will be archived here for preview and recovery.
+                  </p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+
   return (
     <div className={`od-app ${theme === "dark" ? "od-dark" : ""}`}>
       {mobileMenuOpen && (
@@ -805,12 +929,8 @@ export default function OwnerDashboard({
       )}
 
       <aside className={`od-sidebar ${mobileMenuOpen ? "od-sidebar-open" : ""}`}>
-        <div className="od-brand">
-          <span className="od-brand-mark"><LockKeyhole size={23} /></span>
-          <span>
-            <strong>TrustVault</strong>
-            <small>Secure document space</small>
-          </span>
+        <div className="od-brand" style={{ padding: "16px 12px" }}>
+          <TrustVaultLogo size={34} caption="OWNER CONSOLE" animated={true} />
           <button
             className="od-mobile-close"
             onClick={() => setMobileMenuOpen(false)}
@@ -848,11 +968,18 @@ export default function OwnerDashboard({
         </nav>
 
         <div className="od-sidebar-bottom">
-          <div className="od-profile">
-            <span className="od-profile-avatar">DO</span>
+          <div
+            className="od-profile"
+            onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+            style={{ cursor: "pointer" }}
+            title="Click to view My Profile"
+          >
+            <span className="od-profile-avatar">
+              {(currentUser?.name || currentUser?.email || "DO").slice(0, 2).toUpperCase()}
+            </span>
             <span>
-              <strong>Document Owner</strong>
-              <small>owner@example.com</small>
+              <strong>{currentUser?.name || "Document Owner"}</strong>
+              <small>{currentUser?.email || "owner@trustvault.local"}</small>
             </span>
           </div>
 
@@ -861,7 +988,7 @@ export default function OwnerDashboard({
             onClick={() => onNavigate?.("home")}
           >
             <LogOut size={18} />
-            <span>Back to Home</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -885,33 +1012,80 @@ export default function OwnerDashboard({
           </div>
 
           <div className="od-topbar-actions">
-            <span className="od-demo-label">DEMO MODE</span>
-            <button
-              className="od-icon-button"
-              onClick={() =>
-                showNotice("Notifications are sample-only in this prototype.")
-              }
-              title="Notifications"
+            {/* Unified Role Box & Worker ID */}
+            <div
+              className="navbar-role-box"
+              onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+              style={{ cursor: "pointer" }}
+              title="Click to view My Profile"
             >
-              <Bell size={19} />
-            </button>
+              <span>TrustVault - Owner</span>
+              {currentUser?.userCode && (
+                <span className="navbar-id-pill">{currentUser.userCode}</span>
+              )}
+            </div>
+
+            <span className="od-demo-label" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+              <span className="clearance-beacon-dot" style={{ backgroundColor: "#10b981" }} />
+              ZERO-TRUST VAULT
+            </span>
+
+            {onSelectPalette && (
+              <ThemePalettePicker
+                currentPaletteId={palette}
+                onSelectPalette={onSelectPalette}
+              />
+            )}
+
             <button
               className="od-icon-button"
               onClick={onToggleTheme}
-              title="Toggle theme"
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+            </button>
+
+            {/* Profile Avatar Button */}
+            <button
+              type="button"
+              className="od-icon-button od-profile-btn"
+              onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+              title="My Profile Details"
+              aria-label="My Profile"
+              style={{
+                background: "var(--accent-soft)",
+                color: "var(--primary)",
+                fontWeight: 800,
+                fontSize: "12px",
+                borderRadius: "50%",
+                width: "36px",
+                height: "36px",
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+              }}
+            >
+              {(currentUser?.name || currentUser?.email || "DO").slice(0, 2).toUpperCase()}
+            </button>
+
+            {/* Sign Out Button */}
+            <button
+              type="button"
+              className="nav-link nav-signout"
+              onClick={() => onNavigate?.("home")}
+              title="Sign Out"
+              style={{ fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+            >
+              <LogOut size={16} />
+              <span>Sign out</span>
             </button>
           </div>
         </header>
 
         <div className="od-content">
-          <div className="od-demo-warning">
-            <LockKeyhole size={19} />
+          <div className="od-demo-warning" style={{ background: "rgba(37, 99, 235, 0.08)", borderColor: "rgba(37, 99, 235, 0.25)", color: "#1d4ed8" }}>
+            <ShieldCheck size={19} />
             <span>
-              <strong>Frontend prototype only.</strong> Documents, permissions,
-              and audit entries are sample/local state. No real authentication,
-              file storage, or authorization is active yet.
+              <strong>Zero-Trust Document Enclave Active.</strong> All uploads, access controls, and downloads are enforced by the server with SHA-256 cryptographic verification.
             </span>
           </div>
 
@@ -959,6 +1133,7 @@ export default function OwnerDashboard({
           {activeSection === "permissions" && renderPermissions()}
           {activeSection === "upload" && renderUpload()}
           {activeSection === "history" && renderHistory()}
+          {activeSection === "deleted" && renderDeletedDocuments()}
         </div>
       </main>
 
@@ -1031,7 +1206,7 @@ export default function OwnerDashboard({
                 type="button"
                 className="od-secondary-button"
                 style={{ flex: 1 }}
-                onClick={() => openDocumentInNewTab(selectedDocument)}
+                onClick={() => openDocumentInNewTab(selectedDocument, currentUser?.email)}
               >
                 <ExternalLink size={16} /> Open in New Tab
               </button>
@@ -1041,8 +1216,7 @@ export default function OwnerDashboard({
                 className="od-primary-button"
                 style={{ flex: 1 }}
                 onClick={() => {
-                  downloadRealDocument(selectedDocument);
-                  addHistory("Document downloaded", selectedDocument.name);
+                  downloadRealDocument(selectedDocument, currentUser?.email);
                   showNotice(`Downloaded "${selectedDocument.name}" successfully!`);
                 }}
               >

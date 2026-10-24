@@ -24,7 +24,10 @@ import PendingApproval from "./pages/PendingApproval";
 import ViewerDashboard from "./pages/ViewerDashboard";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import Profile from "./pages/Profile";
 import { apiRequest } from "./api";
+import TrustVaultLogo from "./components/TrustVaultLogo";
+import ThemePalettePicker from "./components/ThemePalettePicker";
 
 const roles = [
   {
@@ -51,7 +54,37 @@ const roles = [
 ];
 
 function App() {
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem("trustvault_theme") || "dark";
+    } catch {
+      return "dark";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("trustvault_theme", theme);
+    } catch (e) {
+      console.warn("localStorage theme error", e);
+    }
+  }, [theme]);
+
+  const [palette, setPalette] = useState(() => {
+    try {
+      return localStorage.getItem("trustvault_palette") || "cobalt";
+    } catch {
+      return "cobalt";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("trustvault_palette", palette);
+    } catch (e) {
+      console.warn("localStorage palette error", e);
+    }
+  }, [palette]);
   
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -72,19 +105,23 @@ function App() {
 
   const [page, setPage] = useState(() => {
     try {
-      const savedPage = localStorage.getItem("trustvault_page");
+      // 1. Check URL hash first (e.g., #login, #register, #admin, #owner, #viewer, #home)
+      const hash = window.location.hash?.replace("#", "").toLowerCase();
+      const validPages = ["home", "login", "register", "forgot", "admin", "owner", "viewer", "profile"];
+      if (hash && validPages.includes(hash)) {
+        return hash;
+      }
+
+      // 2. If authenticated user exists and had an active dashboard session, resume it
       const rawUser = localStorage.getItem("trustvault_user");
       const user = rawUser ? JSON.parse(rawUser) : null;
-      if (savedPage) {
-        if (["admin", "owner", "viewer"].includes(savedPage) && !user) {
-          return "login";
-        }
+      const savedPage = localStorage.getItem("trustvault_page");
+
+      if (user && savedPage && ["admin", "owner", "viewer", "profile"].includes(savedPage)) {
         return savedPage;
       }
-      if (user) {
-        const r = (user.role || "").toUpperCase();
-        return r === "ADMIN" ? "admin" : r === "OWNER" ? "owner" : "viewer";
-      }
+
+      // 3. Default to the landing page ("home")
       return "home";
     } catch {
       return "home";
@@ -101,6 +138,21 @@ function App() {
       return null;
     }
   });
+
+  // Listen to browser hash changes (e.g. back/forward navigation)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash?.replace("#", "").toLowerCase();
+      const validPages = ["home", "login", "register", "forgot", "admin", "owner", "viewer", "profile"];
+      if (hash && validPages.includes(hash)) {
+        setPage(hash);
+      } else if (!hash) {
+        setPage("home");
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   useEffect(() => {
     try {
@@ -139,6 +191,16 @@ function App() {
     }
     setPage(nextPage);
     setMobileMenuOpen(false);
+
+    try {
+      if (nextPage === "home") {
+        if (window.location.hash) {
+          history.pushState(null, "", window.location.pathname);
+        }
+      } else {
+        window.location.hash = nextPage;
+      }
+    } catch (e) {}
   };
 
   useEffect(() => {
@@ -213,107 +275,117 @@ function App() {
     changePage("home");
   };
 
+  const isDashboardView = ["owner", "viewer", "admin", "profile"].includes(page);
+
   return (
-    <div className={`app ${theme}`}>
-      <header className="navbar">
-        <button
-          type="button"
-          className="brand"
-          onClick={() => {
-            if (currentUser) {
-              const dash = {
-                ADMIN: "admin",
-                OWNER: "owner",
-                VIEWER: "viewer",
-              }[currentUser.role?.toUpperCase()] || "home";
-              changePage(dash);
-            } else {
-              changePage("home");
-            }
-          }}
-          aria-label="TrustVault home"
-        >
-          <span className="brand-icon">
-            <ShieldCheck size={25} />
-          </span>
-          <span>
-            <span className="brand-name">TrustVault</span>
-            <span className="brand-caption">SECURE DOCUMENTS</span>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className="mobile-menu-button"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle navigation"
-        >
-          {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-
-        <nav className={`nav-actions ${mobileMenuOpen ? "nav-open" : ""}`}>
-          {!currentUser ? (
-            <>
-              <button type="button" className="nav-link" onClick={() => changePage("home")}>
-                Home
-              </button>
-
-              <button
-                type="button"
-                className="nav-link"
-                onClick={() => changePage("login")}
-              >
-                Sign in
-              </button>
-
-              <button
-                type="button"
-                className="button button-primary nav-register"
-                onClick={() => changePage("register")}
-              >
-                Get started <ArrowRight size={16} />
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Designated role textbox & distinct Worker Unique ID */}
-              <div className="navbar-role-box">
-                <span>
-                  {(currentUser.role || "").toUpperCase() === "ADMIN"
-                    ? "TrustVault - Admin"
-                    : (currentUser.role || "").toUpperCase() === "OWNER"
-                    ? "TrustVault - Owner"
-                    : "TrustVault - Viewer"}
-                </span>
-                {currentUser.userCode && (
-                  <span className="navbar-id-pill">{currentUser.userCode}</span>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="nav-link nav-signout"
-                onClick={handleSignOut}
-              >
-                <LogOut size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: "5px" }} />
-                {currentUser.isPreview ? "Exit Preview" : "Sign out"}
-              </button>
-            </>
-          )}
+    <div className={`app ${theme}`} data-palette={palette}>
+      {/* Top Navbar is rendered on public/auth pages; dashboard pages have their unified single top menu bar */}
+      {!isDashboardView && (
+        <header className="navbar">
+          <button
+            type="button"
+            className="brand"
+            onClick={() => {
+              if (currentUser) {
+                const dash = {
+                  ADMIN: "admin",
+                  OWNER: "owner",
+                  VIEWER: "viewer",
+                }[currentUser.role?.toUpperCase()] || "home";
+                changePage(dash);
+              } else {
+                changePage("home");
+              }
+            }}
+            aria-label="TrustVault home"
+          >
+            <TrustVaultLogo size={40} showText={true} caption="ZERO-TRUST ENCLAVE" animated={true} />
+          </button>
 
           <button
             type="button"
-            className="theme-toggle"
-            onClick={() =>
-              setTheme(theme === "light" ? "dark" : "light")
-            }
-            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-            title="Toggle theme"
+            className="mobile-menu-button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation"
           >
-            {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
-        </nav>
-      </header>
+
+          <nav className={`nav-actions ${mobileMenuOpen ? "nav-open" : ""}`}>
+            {!currentUser ? (
+              <>
+                <button type="button" className="nav-link" onClick={() => changePage("home")}>
+                  Home
+                </button>
+
+                <button
+                  type="button"
+                  className="nav-link"
+                  onClick={() => changePage("login")}
+                >
+                  Sign in
+                </button>
+
+                <button
+                  type="button"
+                  className="button button-primary nav-register"
+                  onClick={() => changePage("register")}
+                >
+                  Get started <ArrowRight size={16} />
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Designated role textbox & distinct Worker Unique ID */}
+                <div
+                  className="navbar-role-box"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => changePage("profile")}
+                  title="View My Profile"
+                >
+                  <span>
+                    {(currentUser.role || "").toUpperCase() === "ADMIN"
+                      ? "TrustVault - Admin"
+                      : (currentUser.role || "").toUpperCase() === "OWNER"
+                      ? "TrustVault - Owner"
+                      : "TrustVault - Viewer"}
+                  </span>
+                  {currentUser.userCode && (
+                    <span className="navbar-id-pill">{currentUser.userCode}</span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="nav-link nav-signout"
+                  onClick={handleSignOut}
+                >
+                  <LogOut size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: "5px" }} />
+                  {currentUser.isPreview ? "Exit Preview" : "Sign out"}
+                </button>
+              </>
+            )}
+
+            {/* Interactive Dynamic Theme Palette Selector */}
+            <ThemePalettePicker
+              currentPaletteId={palette}
+              onSelectPalette={setPalette}
+            />
+
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={() =>
+                setTheme(theme === "light" ? "dark" : "light")
+              }
+              aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
+              title="Toggle theme"
+            >
+              {theme === "light" ? <Moon size={19} /> : <Sun size={19} />}
+            </button>
+          </nav>
+        </header>
+      )}
 
       {/* Global Preview Mode Alert Banner */}
       {currentUser?.isPreview && (
@@ -359,22 +431,10 @@ function App() {
               </p>
 
               <div className="hero-buttons">
-                <button
-                  type="button"
-                  className="button button-primary button-large"
-                  onClick={() =>
-                    document
-                      .getElementById("role-selection")
-                      ?.scrollIntoView({ behavior: "smooth" })
-                  }
-                >
-                  Explore TrustVault <ArrowRight size={18} />
-                </button>
-
                 {currentUser ? (
                   <button
                     type="button"
-                    className="button button-secondary button-large"
+                    className="button button-primary button-large"
                     onClick={() =>
                       changePage(
                         {
@@ -388,13 +448,22 @@ function App() {
                     Open your dashboard <ArrowRight size={18} />
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    className="button button-secondary button-large"
-                    onClick={() => changePage("login")}
-                  >
-                    Sign in to your account
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="button button-primary button-large"
+                      onClick={() => changePage("login")}
+                    >
+                      Sign In to TrustVault <ArrowRight size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-secondary button-large"
+                      onClick={() => changePage("register")}
+                    >
+                      Create Account
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -524,7 +593,20 @@ function App() {
                     key={role.id}
                     type="button"
                     className={`role-card ${isSelected ? "selected" : ""}`}
-                    onClick={() => setSelectedRole(role.id)}
+                    onClick={() => {
+                      setSelectedRole(role.id);
+                      if (currentUser) {
+                        changePage(
+                          {
+                            ADMIN: "admin",
+                            OWNER: "owner",
+                            VIEWER: "viewer",
+                          }[currentUser.role] || "home"
+                        );
+                      } else {
+                        changePage("login");
+                      }
+                    }}
                     aria-pressed={isSelected}
                   >
                     <div className="role-card-top">
@@ -549,41 +631,12 @@ function App() {
                     </div>
 
                     <div className="role-card-footer">
-                      <span>{isSelected ? "Selected" : "Select role"}</span>
+                      <span>{currentUser ? `Open ${role.title} Portal` : `Sign in as ${role.title}`}</span>
                       <ArrowRight size={18} />
                     </div>
                   </button>
                 );
               })}
-            </div>
-
-            <div className="role-continue">
-              <div>
-                <span className="continue-label">SELECTED ROLE</span>
-                <strong>
-                  {roles.find((role) => role.id === selectedRole)?.title}
-                </strong>
-              </div>
-
-              <button
-                type="button"
-                className="button button-primary button-large"
-                onClick={() => {
-                  if (currentUser) {
-                    changePage(
-                      {
-                        ADMIN: "admin",
-                        OWNER: "owner",
-                        VIEWER: "viewer",
-                      }[currentUser.role] || "home"
-                    );
-                  } else {
-                    changePage("login");
-                  }
-                }}
-              >
-                {currentUser ? "Open your dashboard" : "Continue to sign in"} <ArrowRight size={18} />
-              </button>
             </div>
           </section>
 
@@ -639,11 +692,13 @@ function App() {
           initialEmail={pendingUserData?.email}
           onNavigate={changePage}
           onAuthenticated={handleAuthenticated}
+          onPreview={handlePreviewLogin}
         />
       ) : page === "register" ? (
         <Register
           role={selectedRole}
           onNavigate={changePage}
+          onPreview={handlePreviewLogin}
         />
       ) : page === "forgot" ? (
         <ForgotPassword
@@ -652,23 +707,39 @@ function App() {
       ) : page === "viewer" ? (
         <ViewerDashboard
           theme={theme}
+          palette={palette}
           currentUser={currentUser}
           onNavigate={(dest) => (dest === "home" ? handleSignOut() : changePage(dest))}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onSelectPalette={setPalette}
+          onOpenProfile={() => changePage("profile")}
         />
       ) : page === "owner" ? (
         <OwnerDashboard
           theme={theme}
+          palette={palette}
           currentUser={currentUser}
           onNavigate={(dest) => (dest === "home" ? handleSignOut() : changePage(dest))}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onSelectPalette={setPalette}
+          onOpenProfile={() => changePage("profile")}
         />
       ) : page === "admin" ? (
         <AdminDashboard
           theme={theme}
+          palette={palette}
           currentUser={currentUser}
           onNavigate={(dest) => (dest === "home" ? handleSignOut() : changePage(dest))}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onSelectPalette={setPalette}
+          onOpenProfile={() => changePage("profile")}
+        />
+      ) : page === "profile" ? (
+        <Profile
+          currentUser={currentUser}
+          theme={theme}
+          onNavigate={changePage}
+          onSignOut={handleSignOut}
         />
       ) : (
         <PendingApproval
@@ -678,14 +749,15 @@ function App() {
         />
       )}
 
-      <footer className="footer">
-        <button type="button" className="footer-brand" onClick={() => changePage("home")}>
-          <ShieldCheck size={19} />
-          TrustVault
-        </button>
-        <span>Secure document sharing · Built around accountability</span>
-        <span>© {new Date().getFullYear()} TrustVault</span>
-      </footer>
+      {!isDashboardView && (
+        <footer className="footer">
+          <button type="button" className="footer-brand" onClick={() => changePage("home")}>
+            <TrustVaultLogo size={24} showText={true} caption="" animated={false} />
+          </button>
+          <span>Secure document sharing · Built around accountability</span>
+          <span>© {new Date().getFullYear()} TrustVault Zero-Trust Enclave</span>
+        </footer>
+      )}
     </div>
   );
 }

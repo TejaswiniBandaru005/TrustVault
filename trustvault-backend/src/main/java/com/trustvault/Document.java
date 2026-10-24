@@ -28,6 +28,18 @@ public class Document {
     @Column(length = 50)
     private String fileSize = "1.0 MB";
 
+    @Column(length = 500)
+    private String storagePath;
+
+    @Column(length = 100)
+    private String fileChecksum;
+
+    @Column(length = 100)
+    private String contentType;
+
+    @Column
+    private Long fileSizeBytes;
+
     @Column(nullable = false, length = 255)
     private String ownerEmail;
 
@@ -42,6 +54,15 @@ public class Document {
 
     @Column(nullable = false)
     private Instant updatedAt = Instant.now();
+
+    @Column(name = "deleted")
+    private Boolean deleted = false;
+
+    @Column
+    private Instant deletedAt;
+
+    @Column(length = 255)
+    private String deletedBy;
 
     public Document() {
     }
@@ -124,6 +145,38 @@ public class Document {
         this.accessPolicy = accessPolicy;
     }
 
+    public String getStoragePath() {
+        return storagePath;
+    }
+
+    public void setStoragePath(String storagePath) {
+        this.storagePath = storagePath;
+    }
+
+    public String getFileChecksum() {
+        return fileChecksum;
+    }
+
+    public void setFileChecksum(String fileChecksum) {
+        this.fileChecksum = fileChecksum;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public Long getFileSizeBytes() {
+        return fileSizeBytes;
+    }
+
+    public void setFileSizeBytes(Long fileSizeBytes) {
+        this.fileSizeBytes = fileSizeBytes;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -138,5 +191,29 @@ public class Document {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public boolean isDeleted() {
+        return Boolean.TRUE.equals(deleted);
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public String getDeletedBy() {
+        return deletedBy;
+    }
+
+    public void setDeletedBy(String deletedBy) {
+        this.deletedBy = deletedBy;
     }
 }

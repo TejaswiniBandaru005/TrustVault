@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Files,
@@ -28,77 +28,11 @@ import {
   openDocumentInNewTab,
   generateDocumentText,
 } from "../utils/documentContent";
-
-const demoDocuments = [
-  {
-    id: 1,
-    name: "Business Proposal.pdf",
-    category: "Business",
-    owner: "owner@example.com",
-    updated: "Oct 20, 2026",
-    type: "PDF",
-    size: "2.4 MB",
-    access: "Allocated",
-    canDownload: false,
-  },
-  {
-    id: 2,
-    name: "Financial Report.docx",
-    category: "Finance",
-    owner: "finance@example.com",
-    updated: "Oct 18, 2026",
-    type: "Word",
-    size: "1.8 MB",
-    access: "Allocated",
-    canDownload: true,
-  },
-  {
-    id: 3,
-    name: "Project Requirements.pdf",
-    category: "Technical",
-    owner: "owner@example.com",
-    updated: "Oct 15, 2026",
-    type: "PDF",
-    size: "950 KB",
-    access: "Not allocated",
-    canDownload: false,
-  },
-  {
-    id: 4,
-    name: "Marketing Plan.xlsx",
-    category: "Business",
-    owner: "marketing@example.com",
-    updated: "Oct 12, 2026",
-    type: "Excel",
-    size: "780 KB",
-    access: "Not allocated",
-    canDownload: false,
-  },
-];
-
-const demoHistory = [
-  {
-    id: 1,
-    action: "Document viewed",
-    document: "Business Proposal.pdf",
-    time: "Today, 10:30 AM",
-    detail: "View-only access",
-  },
-  {
-    id: 2,
-    action: "Document downloaded",
-    document: "Financial Report.docx",
-    time: "Yesterday, 4:15 PM",
-    detail: "Download permission available",
-  },
-  {
-    id: 3,
-    action: "Access granted",
-    document: "Business Proposal.pdf",
-    time: "Oct 19, 2026",
-    detail: "Granted by document owner",
-  },
-];
+import { apiRequest } from "../api";
+import TrustVaultLogo from "../components/TrustVaultLogo";
+import ThemePalettePicker from "../components/ThemePalettePicker";
+import IntegrityPill from "../components/IntegrityPill";
+import SecurityClearanceBadge from "../components/SecurityClearanceBadge";
 
 const navItems = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -117,12 +51,37 @@ function fileIcon(type) {
 
 export default function ViewerDashboard({
   theme = "light",
+  palette = "cobalt",
   onNavigate,
   onToggleTheme,
+  onSelectPalette,
+  onOpenProfile,
+  currentUser,
 }) {
-  const [activeSection, setActiveSection] = useState("overview");
-  const [documents, setDocuments] = useState(demoDocuments);
-  const [history, setHistory] = useState(demoHistory);
+  const [activeSection, setActiveSection] = useState(() => {
+    try {
+      const hash = window.location.hash?.replace("#", "");
+      const valid = ["overview", "all", "search", "allocated", "downloads", "history"];
+      if (hash && valid.includes(hash)) {
+        return hash;
+      }
+      const saved = localStorage.getItem("trustvault_viewer_tab");
+      return saved && valid.includes(saved) ? saved : "overview";
+    } catch {
+      return "overview";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("trustvault_viewer_tab", activeSection);
+      window.location.hash = activeSection;
+    } catch {}
+  }, [activeSection]);
+  const [allocatedDocs, setAllocatedDocs] = useState([]);
+  const [catalogDocs, setCatalogDocs] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -136,20 +95,41 @@ export default function ViewerDashboard({
     window.setTimeout(() => setNotice(""), 3500);
   };
 
-  const addHistory = (action, documentName, detail) => {
-    setHistory((previous) => [
-      {
-        id: Date.now(),
-        action,
-        document: documentName,
-        time: new Date().toLocaleString(),
-        detail,
-      },
-      ...previous,
-    ]);
+  const fetchViewerData = async () => {
+    if (!currentUser?.email) return;
+    const emailParam = encodeURIComponent(currentUser.email);
+
+    try {
+      const [allocatedData, catalogData, histData] = await Promise.all([
+        apiRequest(`/api/documents/viewer?email=${emailParam}`),
+        apiRequest(`/api/documents/catalog?viewerEmail=${emailParam}`),
+        apiRequest(`/api/documents/viewer/history?email=${emailParam}`),
+      ]);
+      setAllocatedDocs(Array.isArray(allocatedData) ? allocatedData : []);
+      setCatalogDocs(Array.isArray(catalogData) ? catalogData : []);
+      setHistory(Array.isArray(histData) ? histData : []);
+    } catch (err) {
+      console.warn("Real-time viewer sync error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const isAllocated = (document) => document.access === "Allocated";
+  useEffect(() => {
+    fetchViewerData();
+    const interval = setInterval(fetchViewerData, 3500);
+    return () => clearInterval(interval);
+  }, [currentUser?.email]);
+
+  const isAllocated = (document) => {
+    if (!document) return false;
+    const access = (document.access || "").toUpperCase();
+    return access === "GRANTED" || access === "ALLOCATED" || document.canView;
+  };
+
+  const documents = (activeSection === "allocated" || activeSection === "downloads")
+    ? allocatedDocs
+    : catalogDocs;
 
   const matchesSearch = (document) => {
     const query = search.toLowerCase().trim();
@@ -164,42 +144,49 @@ export default function ViewerDashboard({
     return matchesQuery && matchesCategory;
   };
 
-  const requestAccess = (document) => {
-    if (requestedIds.includes(document.id)) {
-      showNotice("You have already requested access in this demo.");
-      return;
-    }
-
-    setRequestedIds((previous) => [...previous, document.id]);
-    showNotice(
-      "Demo request recorded locally. The document owner has not been notified."
-    );
-  };
-
-  const viewDocument = (document) => {
-    if (!isAllocated(document)) {
-      showNotice("Access required. Request permission from the document owner.");
-      return;
-    }
-
-    setSelectedDocument(document);
-    addHistory("Document viewed", document.name, "Demo view-only preview");
-  };
-
-  const downloadDocument = (document) => {
-    if (!isAllocated(document) || !document.canDownload) {
-      showNotice("Download is not permitted for this document.");
+  const requestAccess = async (document) => {
+    if (requestedIds.includes(document.id) || document.requested) {
+      showNotice("Access request already submitted for this document.");
       return;
     }
 
     try {
-      downloadRealDocument(document);
-      addHistory(
-        "Document downloaded",
-        document.name,
-        "File downloaded to local machine"
-      );
+      await apiRequest("/api/documents/request-access", {
+        method: "POST",
+        body: JSON.stringify({
+          documentId: document.id,
+          viewerEmail: currentUser?.email,
+          viewerName: currentUser?.name || currentUser?.email,
+        }),
+      });
+
+      setRequestedIds((prev) => [...prev, document.id]);
+      showNotice(`Access request sent to ${document.owner} for "${document.name}".`);
+      await fetchViewerData();
+    } catch (err) {
+      showNotice("Request failed: " + err.message);
+    }
+  };
+
+  const viewDocument = (document) => {
+    if (!isAllocated(document)) {
+      showNotice("Access restricted. Request authorization from the document owner.");
+      return;
+    }
+
+    setSelectedDocument(document);
+  };
+
+  const downloadDocument = async (document) => {
+    if (!isAllocated(document) || !document.canDownload) {
+      showNotice("Download is restricted by the document owner.");
+      return;
+    }
+
+    try {
+      await downloadRealDocument(document, currentUser?.email);
       showNotice(`Downloaded "${document.name}" successfully!`);
+      await fetchViewerData();
     } catch (err) {
       showNotice("Download error: " + err.message);
     }
@@ -240,12 +227,22 @@ export default function ViewerDashboard({
                       <Icon size={19} />
                     </span>
                     <span>
-                      <strong>{document.name}</strong>
-                      <small>{document.size}</small>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        <strong>{document.name}</strong>
+                        <SecurityClearanceBadge level={document.category || "CONFIDENTIAL"} />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", flexWrap: "wrap" }}>
+                        <small>{document.size}</small>
+                        {document.fileChecksum && (
+                          <IntegrityPill hash={document.fileChecksum} />
+                        )}
+                      </div>
                     </span>
                   </div>
                 </td>
-                <td>{document.category}</td>
+                <td>
+                  <span className="vd-category-tag">{document.category}</span>
+                </td>
                 <td>{document.owner}</td>
                 <td>{document.updated}</td>
                 <td>
@@ -517,12 +514,8 @@ export default function ViewerDashboard({
       )}
 
       <aside className={`vd-sidebar ${mobileMenuOpen ? "vd-sidebar-open" : ""}`}>
-        <div className="vd-brand">
-          <span className="vd-brand-mark"><LockKeyhole size={23} /></span>
-          <span className="vd-brand-text">
-            <strong>TrustVault</strong>
-            <small>Secure document space</small>
-          </span>
+        <div className="vd-brand" style={{ padding: "16px 12px" }}>
+          <TrustVaultLogo size={34} caption="VIEWER CONSOLE" animated={true} />
           <button
             className="vd-mobile-close"
             onClick={() => setMobileMenuOpen(false)}
@@ -559,11 +552,18 @@ export default function ViewerDashboard({
         </nav>
 
         <div className="vd-sidebar-bottom">
-          <div className="vd-profile">
-            <span className="vd-avatar">VW</span>
+          <div
+            className="vd-profile"
+            onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+            style={{ cursor: "pointer" }}
+            title="Click to view My Profile"
+          >
+            <span className="vd-avatar">
+              {(currentUser?.name || currentUser?.email || "VW").slice(0, 2).toUpperCase()}
+            </span>
             <span>
-              <strong>Viewer Account</strong>
-              <small>viewer@example.com</small>
+              <strong>{currentUser?.name || "Viewer Account"}</strong>
+              <small>{currentUser?.email || "viewer@trustvault.local"}</small>
             </span>
           </div>
           <button
@@ -571,7 +571,7 @@ export default function ViewerDashboard({
             onClick={() => onNavigate?.("home")}
           >
             <LogOut size={18} />
-            <span>Back to Home</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -595,33 +595,80 @@ export default function ViewerDashboard({
           </div>
 
           <div className="vd-topbar-actions">
-            <span className="vd-demo-label">DEMO MODE</span>
-            <button
-              className="vd-icon-button"
-              title="Notifications"
-              onClick={() =>
-                showNotice("Notifications are not connected in this demo.")
-              }
+            {/* Unified Role Box & Worker ID */}
+            <div
+              className="navbar-role-box"
+              onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+              style={{ cursor: "pointer" }}
+              title="Click to view My Profile"
             >
-              <Bell size={19} />
-            </button>
+              <span>TrustVault - Viewer</span>
+              {currentUser?.userCode && (
+                <span className="navbar-id-pill">{currentUser.userCode}</span>
+              )}
+            </div>
+
+            <span className="vd-demo-label" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+              <span className="clearance-beacon-dot" style={{ backgroundColor: "#10b981" }} />
+              ZERO-TRUST VAULT
+            </span>
+
+            {onSelectPalette && (
+              <ThemePalettePicker
+                currentPaletteId={palette}
+                onSelectPalette={onSelectPalette}
+              />
+            )}
+
             <button
               className="vd-icon-button"
-              title="Toggle theme"
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
               onClick={onToggleTheme}
             >
               {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+            </button>
+
+            {/* Profile Avatar Button */}
+            <button
+              type="button"
+              className="vd-icon-button vd-profile-btn"
+              onClick={() => (onOpenProfile ? onOpenProfile() : onNavigate?.("profile"))}
+              title="My Profile Details"
+              aria-label="My Profile"
+              style={{
+                background: "var(--accent-soft)",
+                color: "var(--primary)",
+                fontWeight: 800,
+                fontSize: "12px",
+                borderRadius: "50%",
+                width: "36px",
+                height: "36px",
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+              }}
+            >
+              {(currentUser?.name || currentUser?.email || "VW").slice(0, 2).toUpperCase()}
+            </button>
+
+            {/* Sign Out Button */}
+            <button
+              type="button"
+              className="nav-link nav-signout"
+              onClick={() => onNavigate?.("home")}
+              title="Sign Out"
+              style={{ fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+            >
+              <LogOut size={16} />
+              <span>Sign out</span>
             </button>
           </div>
         </header>
 
         <div className="vd-content">
-          <div className="vd-demo-warning">
+          <div className="vd-demo-warning" style={{ background: "rgba(37, 99, 235, 0.08)", borderColor: "rgba(37, 99, 235, 0.25)", color: "#1d4ed8" }}>
             <ShieldCheck size={19} />
             <span>
-              <strong>Frontend prototype only.</strong> All sample document
-              data and permission checks run in the browser. Real access must
-              be enforced by the backend before deployment.
+              <strong>Zero-Trust Document Clearance Active.</strong> You only see and access documents cryptographically allocated to your verified identity by document owners.
             </span>
           </div>
 
@@ -718,7 +765,7 @@ export default function ViewerDashboard({
               <button
                 type="button"
                 className="vd-secondary-button"
-                onClick={() => openDocumentInNewTab(selectedDocument)}
+                onClick={() => openDocumentInNewTab(selectedDocument, currentUser?.email)}
                 title="Open complete document in a separate browser window"
               >
                 <ExternalLink size={16} /> Open in New Tab

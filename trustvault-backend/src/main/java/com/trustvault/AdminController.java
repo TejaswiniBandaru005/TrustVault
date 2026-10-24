@@ -1,6 +1,8 @@
 package com.trustvault;
 
 import com.trustvault.repository.AuditLogRepository;
+import com.trustvault.repository.DocumentPermissionRepository;
+import com.trustvault.repository.DocumentRepository;
 import com.trustvault.repository.UserRepository;
 import com.trustvault.user.User;
 import org.springframework.http.HttpStatus;
@@ -16,12 +18,18 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
+    private final DocumentRepository documentRepository;
+    private final DocumentPermissionRepository permissionRepository;
 
     public AdminController(
             UserRepository userRepository,
-            AuditLogRepository auditLogRepository) {
+            AuditLogRepository auditLogRepository,
+            DocumentRepository documentRepository,
+            DocumentPermissionRepository permissionRepository) {
         this.userRepository = userRepository;
         this.auditLogRepository = auditLogRepository;
+        this.documentRepository = documentRepository;
+        this.permissionRepository = permissionRepository;
     }
 
     @GetMapping("/pending-users")
@@ -155,5 +163,64 @@ public class AdminController {
     public ResponseEntity<List<AuditLog>> getAuditLogs() {
         List<AuditLog> logs = auditLogRepository.findTop100ByOrderByTimestampDesc();
         return ResponseEntity.ok(logs);
+    }
+
+    /**
+     * Admin Owner Activity History:
+     * Full audit history of what documents the owner uploaded, deleted, and which viewers they granted access to.
+     */
+    @GetMapping("/owner-history")
+    public ResponseEntity<Map<String, Object>> getOwnerHistory(@RequestParam("email") String email) {
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner email is required.");
+        }
+        String normalizedEmail = email.trim().toLowerCase();
+        User owner = userRepository.findByEmailIgnoreCase(normalizedEmail).orElse(null);
+
+        // Uploaded active documents
+        List<Document> activeDocs = documentRepository.findActiveOwnerDocuments(normalizedEmail);
+
+        // Uploaded deleted documents
+        List<Document> deletedDocs = documentRepository.findDeletedOwnerDocuments(normalizedEmail);
+
+        // All document IDs belonging to this owner
+        List<Document> allOwnerDocs = documentRepository.findByOwnerEmailIgnoreCaseOrderByUpdatedAtDesc(normalizedEmail);
+        List<Long> docIds = allOwnerDocs.stream().map(Document::getId).toList();
+
+        // Permissions granted for these documents
+        List<DocumentPermission> permissions = docIds.isEmpty() ? List.of() : permissionRepository.findByDocumentIdIn(docIds);
+
+        // Distinct viewers granted access
+        Set<String> distinctViewers = new HashSet<>();
+        List<Map<String, Object>> grantedList = new ArrayList<>();
+        for (DocumentPermission p : permissions) {
+            distinctViewers.add(p.getViewerEmail().toLowerCase());
+            Map<String, Object> pMap = new LinkedHashMap<>();
+            pMap.put("id", p.getId());
+            pMap.put("documentId", p.getDocumentId());
+            pMap.put("documentName", p.getDocumentName());
+            pMap.put("viewerEmail", p.getViewerEmail());
+            pMap.put("viewerName", p.getViewerName());
+            pMap.put("canView", p.isCanView());
+            pMap.put("canDownload", p.isCanDownload());
+            pMap.put("status", p.getStatus());
+            pMap.put("grantedAt", p.getGrantedAt() != null ? p.getGrantedAt().toString() : "");
+            grantedList.add(pMap);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("ownerEmail", normalizedEmail);
+        result.put("ownerName", owner != null && owner.getFullName() != null ? owner.getFullName() : normalizedEmail);
+        result.put("userCode", owner != null ? owner.getUserCode() : "TV-OWN");
+        result.put("status", owner != null ? owner.getStatus() : "ACTIVE");
+        result.put("activeDocuments", activeDocs);
+        result.put("deletedDocuments", deletedDocs);
+        result.put("grantedPermissions", grantedList);
+        result.put("totalUploaded", allOwnerDocs.size());
+        result.put("totalActive", activeDocs.size());
+        result.put("totalDeleted", deletedDocs.size());
+        result.put("totalGrantedViewers", distinctViewers.size());
+
+        return ResponseEntity.ok(result);
     }
 }

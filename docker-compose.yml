@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  # ============================================================================
+  # PostgreSQL Database Service
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: trustvault-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trustvault
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: trustvault_secret_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d trustvault"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # TrustVault Full-Stack Application Service (Backend API + Embedded UI)
+  # ============================================================================
+  trustvault-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trustvault-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/trustvault
+      DB_USERNAME: postgres
+      DB_PASSWORD: trustvault_secret_password
+      APP_ADMIN_EMAIL: admin123@gmail.com
+      APP_ADMIN_PASSWORD: admin@123
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
+    driver: local

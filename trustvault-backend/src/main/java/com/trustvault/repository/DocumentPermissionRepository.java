@@ -12,6 +12,10 @@ public interface DocumentPermissionRepository extends JpaRepository<DocumentPerm
 
     List<DocumentPermission> findByDocumentId(Long documentId);
 
+    List<DocumentPermission> findByDocumentIdIn(List<Long> documentIds);
+
+    List<DocumentPermission> findByDocumentIdInAndStatus(List<Long> documentIds, String status);
+
     Optional<DocumentPermission> findByDocumentIdAndViewerEmailIgnoreCase(Long documentId, String viewerEmail);
 
     List<DocumentPermission> findByViewerEmailIgnoreCaseAndStatus(String viewerEmail, String status);

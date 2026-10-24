@@ -25,12 +25,40 @@ public class AdminSeeder {
 
         return args -> {
             syncIdSequence(jdbcTemplate);
-            seedAdmin(
+
+            // Default Admin account (admin123@gmail.com / admin@123)
+            seedUser(
                     userRepository,
                     passwordEncoder,
                     adminEmail,
-                    adminPassword
+                    adminPassword,
+                    Role.ADMIN,
+                    "System Administrator",
+                    "TV-USR-0001"
             );
+
+            // Owner demo account (owner1@example.com / Owner1@123)
+            seedUser(
+                    userRepository,
+                    passwordEncoder,
+                    "owner1@example.com",
+                    "Owner1@123",
+                    Role.OWNER,
+                    "Demo Document Owner",
+                    "TV-USR-0002"
+            );
+
+            // Viewer demo account (viewer1@example.com / Viewer1@123)
+            seedUser(
+                    userRepository,
+                    passwordEncoder,
+                    "viewer1@example.com",
+                    "Viewer1@123",
+                    Role.VIEWER,
+                    "Demo Viewer",
+                    "TV-USR-0003"
+            );
+
             syncIdSequence(jdbcTemplate);
         };
     }
@@ -47,46 +75,53 @@ public class AdminSeeder {
     }
 
     @Transactional
-    void seedAdmin(
+    void seedUser(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            String adminEmail,
-            String adminPassword) {
+            String email,
+            String password,
+            Role role,
+            String fullName,
+            String defaultUserCode) {
 
-        String cleanEmail = (adminEmail == null || adminEmail.isBlank())
+        String cleanEmail = (email == null || email.isBlank())
                 ? "admin123@gmail.com"
-                : adminEmail.trim().toLowerCase();
+                : email.trim().toLowerCase();
 
-        String cleanPassword = (adminPassword == null || adminPassword.isBlank())
+        String cleanPassword = (password == null || password.isBlank())
                 ? "admin@123"
-                : adminPassword.trim();
+                : password.trim();
 
-        var existingAdmin = userRepository.findByEmailIgnoreCase(cleanEmail);
+        var existingUser = userRepository.findByEmailIgnoreCase(cleanEmail);
 
-        if (existingAdmin.isPresent()) {
-            User admin = existingAdmin.get();
-            admin.setStatus("APPROVED");
-            String resetFlag = System.getProperty("APP_ADMIN_RESET_PASSWORD", System.getenv("APP_ADMIN_RESET_PASSWORD"));
-            boolean shouldReset = Boolean.parseBoolean(resetFlag) || !passwordEncoder.matches(cleanPassword, admin.getPassword());
-
-            if (shouldReset) {
-                admin.setPassword(passwordEncoder.encode(cleanPassword));
-                System.out.println("[TrustVault] Admin account password synchronized for: " + cleanEmail);
-            } else {
-                System.out.println("[TrustVault] Admin account ready: " + cleanEmail);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            user.setStatus("APPROVED");
+            if (!passwordEncoder.matches(cleanPassword, user.getPassword())) {
+                user.setPassword(passwordEncoder.encode(cleanPassword));
+                System.out.println("[TrustVault] Password updated for account: " + cleanEmail);
             }
-            userRepository.save(admin);
+            if (user.getUserCode() == null || user.getUserCode().isBlank()) {
+                user.setUserCode(defaultUserCode);
+            }
+            if (user.getFullName() == null || user.getFullName().isBlank()) {
+                user.setFullName(fullName);
+            }
+            userRepository.save(user);
             return;
         }
 
-        User admin = new User(
+        User user = new User(
                 cleanEmail,
                 passwordEncoder.encode(cleanPassword),
-                Role.ADMIN
+                role,
+                fullName,
+                ""
         );
-        admin.setStatus("APPROVED");
-
-        userRepository.save(admin);
-        System.out.println("[TrustVault] Default TrustVault admin created: " + cleanEmail);
+        user.setStatus("APPROVED");
+        User saved = userRepository.save(user);
+        saved.setUserCode(defaultUserCode != null ? defaultUserCode : String.format("TV-USR-%04d", saved.getId()));
+        userRepository.save(saved);
+        System.out.println("[TrustVault] Default " + role + " account ready: " + cleanEmail);
     }
 }

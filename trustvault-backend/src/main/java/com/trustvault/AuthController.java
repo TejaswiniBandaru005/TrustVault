@@ -44,10 +44,18 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> register(
             @Valid @RequestBody RegistrationRequest request) {
         String normalizedEmail = request.email().trim().toLowerCase();
-        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+        var existingUserOpt = userRepository.findByEmailIgnoreCase(normalizedEmail);
+        if (existingUserOpt.isPresent()) {
+            User existing = existingUserOpt.get();
+            if ("REVOKED".equalsIgnoreCase(existing.getStatus())) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Your account has been revoked by an Administrator. You no longer have access to sign up or use TrustVault."
+                );
+            }
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "An account with this email already exists."
+                    "An account with this email already exists. Please sign in."
             );
         }
 
@@ -57,14 +65,7 @@ public class AuthController {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Role must be VIEWER or OWNER."
-            );
-        }
-
-        if (role == Role.ADMIN) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Administrator accounts cannot be self-registered."
+                    "Role must be VIEWER, OWNER, or ADMIN."
             );
         }
 
@@ -77,6 +78,7 @@ public class AuthController {
                 request.fullName().trim(),
                 phone
         );
+        newUser.setStatus("PENDING_APPROVAL");
         User savedUser = userRepository.save(newUser);
 
         // Assign guaranteed distinct unique ID: TV-USR-xxxx
@@ -97,7 +99,9 @@ public class AuthController {
                 "message", "Registration completed successfully.",
                 "email", normalizedEmail,
                 "userCode", userCode,
-                "role", role.name()
+                "role", role.name(),
+                "fullName", savedUser.getFullName() != null ? savedUser.getFullName() : normalizedEmail,
+                "status", savedUser.getStatus() != null ? savedUser.getStatus() : "PENDING_APPROVAL"
         ));
     }
 

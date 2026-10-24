@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" fill="none">
+  <defs>
+    <linearGradient id="tv-full-shield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="60%" stop-color="#1d4ed8" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="tv-full-cyan" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+    <linearGradient id="tv-text-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+
+  <!-- Shield Emblem -->
+  <g transform="translate(6, 4) scale(0.85)">
+    <path d="M30 4 L50 12 C50 34 30 54 30 56 C30 54 10 34 10 12 L30 4 Z" 
+          fill="url(#tv-full-shield)" 
+          stroke="url(#tv-full-cyan)" 
+          stroke-width="2.5" 
+          stroke-linejoin="round" />
+    <circle cx="30" cy="28" r="13" 
+            stroke="url(#tv-full-cyan)" 
+            stroke-width="1.8" 
+            stroke-dasharray="3 2" 
+            opacity="0.9" />
+    <polygon points="30,19 38,24 38,33 30,38 22,33 22,24" 
+             fill="#0b1329" 
+             stroke="url(#tv-full-cyan)" 
+             stroke-width="1.5" />
+    <circle cx="30" cy="27" r="3" fill="#38bdf8" />
+    <polygon points="28.5,28 31.5,28 32.5,34 27.5,34" fill="#38bdf8" />
+    <circle cx="30" cy="47" r="2" fill="#38bdf8" />
+  </g>
+
+  <!-- Typography -->
+  <text x="64" y="34" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="800" letter-spacing="-0.5" fill="#1e293b">
+    Trust<tspan fill="#2563eb">Vault</tspan>
+  </text>
+  <text x="65" y="47" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="700" letter-spacing="2.5" fill="#64748b">
+    ZERO-TRUST ENCLAVE
+  </text>
+</svg>
