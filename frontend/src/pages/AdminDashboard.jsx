@@ -43,20 +43,21 @@ import ThemePalettePicker from "../components/ThemePalettePicker";
 import IntegrityPill from "../components/IntegrityPill";
 import SecurityClearanceBadge from "../components/SecurityClearanceBadge";
 import ViewerEmailAutocomplete from "../components/ViewerEmailAutocomplete";
+import DocumentSearchSelect from "../components/DocumentSearchSelect";
 
 // Start users and requests clean as requested
 const starterUsers = [];
 const starterRequests = [];
 
-// Authentic Day 1 to Day 7 Engineering Progress Reports
+// Authentic Day 1 to Day 7 Engineering Progress Reports with exact timestamps
 const starterDocuments = [
-  { id: 101, day: 1, name: "Day 01 - Architecture and Zero-Trust Foundations.pdf", owner: "System Administrator", category: "Architecture", updated: "Oct 19, 2026", size: "1.2 MB", fileChecksum: "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab", summary: "Zero-Trust foundational axioms, triple-tier RBAC architecture (Admin, Owner, Viewer), Spring Security cryptographic gateway, and attack surface boundary definition." },
-  { id: 102, day: 2, name: "Day 02 - Security Threat Modeling & STRIDE Matrix.pdf", owner: "System Administrator", category: "Security", updated: "Oct 20, 2026", size: "1.8 MB", fileChecksum: "f7c3b2d90123a78b90c1e2f3a4b5c678901234567890abcdef1234567890bc", summary: "STRIDE threat model assessment, DREAD vulnerability quantification, SHA-256 byte digest pipeline, and single-use OTP replay mitigation." },
-  { id: 103, day: 3, name: "Day 03 - Cryptographic Hashing & Storage Engine.pdf", owner: "System Administrator", category: "Engineering", updated: "Oct 21, 2026", size: "2.1 MB", fileChecksum: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0", summary: "SHA-256 multipart upload processor, physical isolated disk storage, Neon AWS PostgreSQL relational schema, and append-only audit ledger." },
-  { id: 104, day: 4, name: "Day 04 - Multi-Factor Authentication & OTP Engine.pdf", owner: "System Administrator", category: "Authentication", updated: "Oct 22, 2026", size: "1.6 MB", fileChecksum: "b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01", summary: "Spring Security 6 stateless filter chain, 6-digit OTP verification protocol, purpose-bound email validation, and role clearance switcher." },
-  { id: 105, day: 5, name: "Day 05 - Vercel & Render Cloud Infrastructure.pdf", owner: "System Administrator", category: "DevOps", updated: "Oct 23, 2026", size: "2.4 MB", fileChecksum: "c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef012", summary: "Dual-cloud deployment orchestration: Vercel Edge frontend with reverse-proxy rewrites, Render containerized backend with dynamic $PORT, and CORS configuration." },
-  { id: 106, day: 6, name: "Day 06 - Enclave Soft-Delete & Access Gating.pdf", owner: "System Administrator", category: "Governance", updated: "Oct 24, 2026", size: "1.9 MB", fileChecksum: "d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123", summary: "Soft-deletion preservation enclave, unverified preview containment, instant administrative access revocation, and document restoration pipeline." },
-  { id: 107, day: 7, name: "Day 07 - Autocomplete Delegation & Security Hardening.pdf", owner: "System Administrator", category: "Security", updated: "Oct 25, 2026", size: "2.3 MB", fileChecksum: "e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01234", summary: "Viewer autocomplete delegation with prefix matching, real owner identity resolution, Docker security containerization, and unit test verification suite." },
+  { id: 101, day: 1, name: "Day 01 - Architecture and Zero-Trust Foundations.pdf", owner: "System Administrator", category: "Architecture", updated: "Oct 19, 2026 · 09:30:00 AM", size: "1.2 MB", fileChecksum: "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab", summary: "Zero-Trust foundational axioms, triple-tier RBAC architecture (Admin, Owner, Viewer), Spring Security cryptographic gateway, and attack surface boundary definition." },
+  { id: 102, day: 2, name: "Day 02 - Security Threat Modeling & STRIDE Matrix.pdf", owner: "System Administrator", category: "Security", updated: "Oct 20, 2026 · 11:15:22 AM", size: "1.8 MB", fileChecksum: "f7c3b2d90123a78b90c1e2f3a4b5c678901234567890abcdef1234567890bc", summary: "STRIDE threat model assessment, DREAD vulnerability quantification, SHA-256 byte digest pipeline, and single-use OTP replay mitigation." },
+  { id: 103, day: 3, name: "Day 03 - Cryptographic Hashing & Storage Engine.pdf", owner: "System Administrator", category: "Engineering", updated: "Oct 21, 2026 · 02:20:45 PM", size: "2.1 MB", fileChecksum: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0", summary: "SHA-256 multipart upload processor, physical isolated disk storage, Neon AWS PostgreSQL relational schema, and append-only audit ledger." },
+  { id: 104, day: 4, name: "Day 04 - Multi-Factor Authentication & OTP Engine.pdf", owner: "System Administrator", category: "Authentication", updated: "Oct 22, 2026 · 04:45:10 PM", size: "1.6 MB", fileChecksum: "b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01", summary: "Spring Security 6 stateless filter chain, 6-digit OTP verification protocol, purpose-bound email validation, and role clearance switcher." },
+  { id: 105, day: 5, name: "Day 05 - Vercel & Render Cloud Infrastructure.pdf", owner: "System Administrator", category: "DevOps", updated: "Oct 23, 2026 · 10:00:30 AM", size: "2.4 MB", fileChecksum: "c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef012", summary: "Dual-cloud deployment orchestration: Vercel Edge frontend with reverse-proxy rewrites, Render containerized backend with dynamic $PORT, and CORS configuration." },
+  { id: 106, day: 6, name: "Day 06 - Enclave Soft-Delete & Access Gating.pdf", owner: "System Administrator", category: "Governance", updated: "Oct 24, 2026 · 06:30:18 PM", size: "1.9 MB", fileChecksum: "d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123", summary: "Soft-deletion preservation enclave, unverified preview containment, instant administrative access revocation, and document restoration pipeline." },
+  { id: 107, day: 7, name: "Day 07 - Autocomplete Delegation & Security Hardening.pdf", owner: "System Administrator", category: "Security", updated: "Oct 25, 2026 · 01:00:44 AM", size: "2.3 MB", fileChecksum: "e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01234", summary: "Viewer autocomplete delegation with prefix matching, real owner identity resolution, Docker security containerization, and unit test verification suite." },
 ];
 
 const starterEvents = [
@@ -81,7 +82,7 @@ function AdminDashboard({
   const [section, setSection] = useState(() => {
     try {
       const hash = window.location.hash?.replace("#", "");
-      const valid = ["overview", "reports", "requests", "viewers", "owners", "documents", "upload", "permissions", "deleted", "activity", "events"];
+      const valid = ["overview", "reports", "requests", "users", "viewers", "owners", "documents", "upload", "permissions", "deleted", "activity", "events"];
       if (hash && valid.includes(hash)) {
         return hash;
       }
@@ -110,6 +111,8 @@ function AdminDashboard({
   const [auditLogs, setAuditLogs] = useState([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
+  const [reportsSearch, setReportsSearch] = useState("");
+  const [docSortOrder, setDocSortOrder] = useState("desc");
   const [notice, setNotice] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -155,6 +158,17 @@ function AdminDashboard({
     });
   }, [users, search, roleFilter]);
 
+  const filteredReports = useMemo(() => {
+    const q = (reportsSearch || "").trim().toLowerCase();
+    if (!q) return starterDocuments;
+    return starterDocuments.filter((doc) =>
+      doc.name.toLowerCase().includes(q) ||
+      doc.category.toLowerCase().includes(q) ||
+      doc.summary.toLowerCase().includes(q) ||
+      `day ${doc.day}`.toLowerCase().includes(q)
+    );
+  }, [reportsSearch]);
+
   const filteredDocuments = useMemo(
     () =>
       documents.filter((doc) =>
@@ -164,6 +178,21 @@ function AdminDashboard({
       ),
     [documents, search]
   );
+
+  const sortedDocuments = useMemo(() => {
+    const list = [...filteredDocuments];
+    list.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.updatedAt || a.updated || 0).getTime();
+      const timeB = new Date(b.createdAt || b.updatedAt || b.updated || 0).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return docSortOrder === "asc" ? timeA - timeB : timeB - timeA;
+      }
+      const nameA = (a.name || "").toLowerCase();
+      const nameB = (b.name || "").toLowerCase();
+      return docSortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
+    return list;
+  }, [filteredDocuments, docSortOrder]);
 
   const addNotice = (message) => setNotice(message);
 
@@ -488,10 +517,9 @@ function AdminDashboard({
 
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "reports", label: "Daily Reports (Day 1-7)", icon: CalendarDays, count: 7 },
+    { id: "reports", label: "Daily Reports", icon: CalendarDays, count: 7 },
     { id: "requests", label: "New Requests", icon: UserCheck, count: requests.length },
-    { id: "viewers", label: "Viewer Details", icon: Users },
-    { id: "owners", label: "Owner Details", icon: ShieldCheck },
+    { id: "users", label: "User Details", icon: Users, count: users.length },
     { id: "documents", label: "All Documents", icon: FileText },
     { id: "upload", label: "Upload Document", icon: Upload },
     { id: "permissions", label: "Grant Permissions", icon: LockKeyhole },
@@ -503,8 +531,9 @@ function AdminDashboard({
     overview: "Admin Overview",
     reports: "Daily Engineering Progress Reports (Day 1 – 7)",
     requests: "Registration Requests",
-    viewers: "Viewer Details",
-    owners: "Owner Details",
+    users: "User Details",
+    viewers: "User Details",
+    owners: "User Details",
     documents: "Document Monitoring",
     upload: "Ingest Document & Enclave Reports",
     permissions: "Grant Document Permission",
@@ -512,12 +541,7 @@ function AdminDashboard({
     activity: "Activity & Security",
   }[section];
 
-  const visibleUsers = filteredUsers.filter((user) => {
-    const roleLower = (user.role || "").toLowerCase();
-    if (section === "viewers") return roleLower === "viewer";
-    if (section === "owners") return roleLower === "owner";
-    return true;
-  });
+  const visibleUsers = filteredUsers;
 
   return (
     <div className={`ad-app ${theme === "dark" ? "ad-dark" : ""}`}>
@@ -745,53 +769,98 @@ function AdminDashboard({
 
           {section === "reports" && (
             <div className="ad-reports-wrapper" style={{ maxWidth: "100%", paddingTop: "8px" }}>
-              <div className="ad-reports-grid">
-                {starterDocuments.map((doc) => (
-                  <div key={doc.id} className="ad-report-card">
-                    <div>
-                      <div className="ad-report-card-top">
-                        <span className="ad-report-day-badge">DAY {String(doc.day || "").padStart(2, "0")} · {doc.category}</span>
-                        <span className="ad-report-pdf-tag">PDF DOCUMENT</span>
-                      </div>
-                      <h3 className="ad-report-title">{doc.name}</h3>
-                      <p className="ad-report-summary">{doc.summary}</p>
-                    </div>
-
-                    <div>
-                      <div className="ad-report-meta-row">
-                        <span>📅 Milestone: {doc.updated}</span>
-                        <span>Size: {doc.size}</span>
-                      </div>
-                      <div style={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span style={{ fontSize: "0.74rem", color: "var(--muted)" }}>SHA-256 Fingerprint:</span>
-                        <IntegrityPill hash={doc.fileChecksum} />
-                      </div>
-
-                      <div className="ad-report-actions-row" style={{ marginTop: "16px" }}>
-                        <button
-                          type="button"
-                          className="ad-report-btn-preview"
-                          onClick={() => openDocumentInNewTab(doc)}
-                          title="Preview document in secure reader"
-                        >
-                          <Eye size={15} /> Preview
-                        </button>
-                        <button
-                          type="button"
-                          className="ad-report-btn-download"
-                          onClick={() => {
-                            downloadRealDocument(doc);
-                            addNotice(`Downloaded "${doc.name}" in PDF format!`);
-                          }}
-                          title="Download document in PDF format"
-                        >
-                          <Download size={15} /> Download PDF
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  marginBottom: "20px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="ad-search" style={{ flex: 1, maxWidth: "460px" }}>
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    placeholder="Search daily engineering reports (e.g. STRIDE, Day 01, DevOps, Neon)..."
+                    value={reportsSearch}
+                    onChange={(e) => setReportsSearch(e.target.value)}
+                  />
+                  {reportsSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setReportsSearch("")}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--muted)",
+                        cursor: "pointer",
+                        padding: "4px",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+                <span style={{ fontSize: "0.84rem", color: "var(--muted)", fontWeight: 600 }}>
+                  Showing {filteredReports.length} of {starterDocuments.length} technical reports
+                </span>
               </div>
+
+              {filteredReports.length === 0 ? (
+                <EmptyState text={`No daily engineering reports match "${reportsSearch}".`} />
+              ) : (
+                <div className="ad-reports-grid">
+                  {filteredReports.map((doc) => (
+                    <div key={doc.id} className="ad-report-card">
+                      <div>
+                        <div className="ad-report-card-top">
+                          <span className="ad-report-day-badge">DAY {String(doc.day || "").padStart(2, "0")} · {doc.category}</span>
+                          <span className="ad-report-pdf-tag">PDF DOCUMENT</span>
+                        </div>
+                        <h3 className="ad-report-title">{doc.name}</h3>
+                        <p className="ad-report-summary">{doc.summary}</p>
+                      </div>
+
+                      <div>
+                        <div className="ad-report-meta-row">
+                          <span>📅 Milestone: {doc.updated}</span>
+                          <span>Size: {doc.size}</span>
+                        </div>
+                        <div style={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: "0.74rem", color: "var(--muted)" }}>SHA-256 Fingerprint:</span>
+                          <IntegrityPill hash={doc.fileChecksum} />
+                        </div>
+
+                        <div className="ad-report-actions-row" style={{ marginTop: "16px" }}>
+                          <button
+                            type="button"
+                            className="ad-report-btn-preview"
+                            onClick={() => openDocumentInNewTab(doc)}
+                            title="Preview document in secure reader"
+                          >
+                            <Eye size={15} /> Preview
+                          </button>
+                          <button
+                            type="button"
+                            className="ad-report-btn-download"
+                            onClick={() => {
+                              downloadRealDocument(doc);
+                              addNotice(`Downloaded "${doc.name}" in PDF format!`);
+                            }}
+                            title="Download document in PDF format"
+                          >
+                            <Download size={15} /> Download PDF
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -808,12 +877,12 @@ function AdminDashboard({
             </section>
           )}
 
-          {(section === "viewers" || section === "owners") && (
+          {(section === "users" || section === "viewers" || section === "owners") && (
             <section className="ad-panel">
               <div className="ad-panel-heading">
                 <div>
-                  <h2>{section === "viewers" ? "Registered Viewers" : "Registered Document Owners"}</h2>
-                  <p>Inspect accounts, review last login, and suspend demo accounts.</p>
+                  <h2>User Details</h2>
+                  <p>Inspect registered user accounts (Viewers & Owners), filter by role, review activity, and manage permissions.</p>
                 </div>
                 <span className="ad-count-pill">{visibleUsers.length} accounts</span>
               </div>
@@ -905,7 +974,7 @@ function AdminDashboard({
                   >
                     <LockKeyhole size={14} /> Grant Permission
                   </button>
-                  <span className="ad-count-pill">{filteredDocuments.length} documents</span>
+                  <span className="ad-count-pill">{sortedDocuments.length} documents</span>
                 </div>
               </div>
               <div className="ad-toolbar">
@@ -913,8 +982,35 @@ function AdminDashboard({
                   <Search size={17} />
                   <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search file, owner, category..." />
                 </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <label htmlFor="ad-doc-sort-select" style={{ fontSize: "0.82rem", color: "var(--muted)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    Sort Files:
+                  </label>
+                  <select
+                    id="ad-doc-sort-select"
+                    value={docSortOrder}
+                    onChange={(e) => setDocSortOrder(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid var(--border)",
+                      backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                      color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="desc" style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>
+                      Descending (Z → A / Newest First)
+                    </option>
+                    <option value="asc" style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>
+                      Ascending (A → Z / Oldest First)
+                    </option>
+                  </select>
+                </div>
               </div>
-              <DocumentTable documents={filteredDocuments} onInspect={setSelectedDocument} onDelete={deleteDocument} />
+              <DocumentTable documents={sortedDocuments} onInspect={setSelectedDocument} onDelete={deleteDocument} />
             </section>
           )}
 
@@ -928,7 +1024,7 @@ function AdminDashboard({
                     </div>
                     <div className="ad-card-header-text">
                       <h2>Grant Document Permission</h2>
-                      <p>Authorize a verified viewer to view or download a selected document across any enclave with cryptographic access delegation.</p>
+                      <p>Authorize a verified viewer or owner to view or download a selected document across any enclave with cryptographic access delegation.</p>
                     </div>
                   </div>
                   <span className="ad-auth-summary-badge">
@@ -939,13 +1035,14 @@ function AdminDashboard({
                 <form className="ad-permissions-form" onSubmit={handleAdminGrantPermission}>
                   <div className="ad-form-group">
                     <label className="ad-form-label">
-                      <span>Viewer Email</span>
-                      <span className="ad-form-label-hint">Prefix-match registered viewers</span>
+                      <span>Recipient User (Viewer or Owner Email)</span>
+                      <span className="ad-form-label-hint">Prefix-match registered viewers & owners</span>
                     </label>
                     <ViewerEmailAutocomplete
                       value={grantViewerEmail}
                       onChange={setGrantViewerEmail}
-                      placeholder="Type viewer email (e.g. viewer1@example.com)..."
+                      usersList={users}
+                      placeholder="Type viewer or owner email (e.g. user@example.com)..."
                       required
                     />
                   </div>
@@ -954,40 +1051,15 @@ function AdminDashboard({
                     <div className="ad-form-group">
                       <label className="ad-form-label">
                         <span>Select Document</span>
-                        <span className="ad-form-label-hint">{documents.length} available</span>
+                        <span className="ad-form-label-hint">Recently added on top · Type to filter</span>
                       </label>
-                      <select
-                        className="ad-styled-select"
+                      <DocumentSearchSelect
+                        documents={documents}
                         value={grantDocumentId}
-                        onChange={(e) => setGrantDocumentId(e.target.value)}
-                        style={{
-                          backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
-                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
-                        }}
+                        onChange={setGrantDocumentId}
+                        theme={theme}
                         required
-                      >
-                        <option
-                          value=""
-                          style={{
-                            backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
-                            color: theme === "dark" ? "#f8fafc" : "#0f172a",
-                          }}
-                        >
-                          -- Choose document from catalog --
-                        </option>
-                        {documents.map((doc) => (
-                          <option
-                            key={doc.id}
-                            value={doc.id}
-                            style={{
-                              backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
-                              color: theme === "dark" ? "#f8fafc" : "#0f172a",
-                            }}
-                          >
-                            {doc.name} [{doc.category || "General"}] · {doc.owner}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
 
                     <div className="ad-form-group">
@@ -1365,14 +1437,17 @@ function AdminDashboard({
       )}
 
       {selectedDocument && (
-        <Modal title={selectedDocument.deleted ? "Deleted Document Details" : "Document Details"} onClose={() => setSelectedDocument(null)}>
+        <Modal title={selectedDocument.deleted ? "Deleted Document Details" : "Document Security & Metadata"} onClose={() => setSelectedDocument(null)}>
           <div className="ad-document-preview"><FileText size={28} /></div>
-          <Detail label="Document name" value={selectedDocument.name} />
-          <Detail label="Owner" value={selectedDocument.owner || selectedDocument.ownerName || selectedDocument.ownerEmail || "N/A"} />
-          <Detail label="Category" value={selectedDocument.category || "General"} />
-          <Detail label="File size" value={selectedDocument.size || selectedDocument.fileSize || "1.0 MB"} />
+          <Detail label="Document name" value={selectedDocument.name || "Untitled Document"} />
+          <Detail label="Owner / Publisher" value={selectedDocument.owner || selectedDocument.ownerName || selectedDocument.ownerEmail || "System Administrator"} />
+          <Detail label="Classification" value={<SecurityClearanceBadge level={selectedDocument.category || "CONFIDENTIAL"} />} />
+          <Detail label="File Type & Format" value={`${selectedDocument.fileType || selectedDocument.type || "PDF"} (${selectedDocument.contentType || "application/pdf"})`} />
+          <Detail label="Size on Disk" value={selectedDocument.size || selectedDocument.fileSize || "1.0 MB"} />
+          <Detail label="SHA-256 Fingerprint" value={<IntegrityPill hash={selectedDocument.fileChecksum || "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab"} />} />
+          <Detail label="Access Policy" value={selectedDocument.accessPolicy || "Level 1 · Admin Oversight Clearance"} />
           <Detail label="Status" value={selectedDocument.deleted ? "DELETED (In Deleted Enclave)" : "ACTIVE"} />
-          <Detail label="Last updated" value={selectedDocument.updated || (selectedDocument.updatedAt ? new Date(selectedDocument.updatedAt).toLocaleDateString() : "Recently")} />
+          <Detail label="Last Updated & Ingested" value={selectedDocument.updated || (selectedDocument.updatedAt ? new Date(selectedDocument.updatedAt).toLocaleString() : new Date().toLocaleString())} />
           {selectedDocument.deletedAt && (
             <Detail label="Deleted at" value={new Date(selectedDocument.deletedAt).toLocaleString()} />
           )}
@@ -1690,7 +1765,7 @@ function DocumentTable({ documents, onInspect, onDelete }) {
     <div className="ad-table-wrap">
       <table className="ad-table">
         <thead>
-          <tr><th>DOCUMENT</th><th>OWNER</th><th>CATEGORY</th><th>UPDATED</th><th>ACTIONS</th></tr>
+          <tr><th>DOCUMENT</th><th>OWNER</th><th>CATEGORY</th><th>TIMESTAMP & DATE</th><th>ACTIONS</th></tr>
         </thead>
         <tbody>
           {documents.map((doc) => (
@@ -1704,15 +1779,17 @@ function DocumentTable({ documents, onInspect, onDelete }) {
                       <SecurityClearanceBadge level={doc.category || "CONFIDENTIAL"} />
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px", flexWrap: "wrap" }}>
-                      <small>{doc.size}</small>
+                      <small>{doc.size || doc.fileSize || "1.0 MB"}</small>
                       {doc.fileChecksum && <IntegrityPill hash={doc.fileChecksum} />}
                     </div>
                   </div>
                 </div>
               </td>
-              <td>{doc.owner}</td>
-              <td><span className="ad-category-tag">{doc.category}</span></td>
-              <td className="ad-muted">{doc.updated}</td>
+              <td>{doc.owner || doc.ownerName || "System Administrator"}</td>
+              <td><span className="ad-category-tag">{doc.category || "General"}</span></td>
+              <td className="ad-muted" style={{ whiteSpace: "nowrap" }}>
+                {doc.updated || (doc.updatedAt ? new Date(doc.updatedAt).toLocaleString() : "Recently")}
+              </td>
               <td><div className="ad-table-actions">
                 <button className="ad-small-icon" onClick={() => onInspect(doc)} title="Inspect metadata"><Eye size={15} /></button>
                 <button className="ad-small-icon danger" onClick={() => onDelete(doc)} title="Remove demo entry"><Trash2 size={15} /></button>

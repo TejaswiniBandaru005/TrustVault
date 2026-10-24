@@ -144,6 +144,7 @@
 | **T-04** | Role Escalation to Administrator | 10 | 2 | 2 | 10 | 3 | **5.4** | **Medium** (Mitigated by RBAC & Approval Gate) |
 | **T-05** | Unauthorized Screen Capture of Protected Document | 6 | 9 | 8 | 2 | 8 | **6.6** | **High** (Mitigated by Cryptographic Watermarking) |
 | **T-06** | Compromised User Continued Access | 8 | 4 | 3 | 5 | 4 | **4.8** | **Medium** (Mitigated by Instant Revocation Protocol) |
+| **T-07** | Delegation Ambiguity & Temporal Forensic Blindspots | 7 | 3 | 3 | 6 | 4 | **4.6** | **Medium** (Mitigated by Searchable Autocomplete & Exact Timestamps) |
 
 ---
 

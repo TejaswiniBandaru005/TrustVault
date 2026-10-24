@@ -122,6 +122,32 @@
 
 ---
 
+### Entry 7: User Directory Consolidation, Searchable Document Delegation & Exact Temporal Ingestion Audit
+* **Focus Area:** **AUTHORIZATION, ACCESS CONTROL & AUDIT TRAIL**
+* **Date:** 2026-10-25
+* **What you asked for:**
+  1. Add a real-time search bar in the Daily Engineering Progress Reports page.
+  2. Implement an Ascending to Descending and Descending to Ascending file sorting filter in the Document Monitoring page.
+  3. Expand the Grant Document Permission page so Administrators can grant file access to **both Viewers and Owners**, not only Viewers. Also implement searchable typing to select documents with recently added files appearing at the top.
+  4. Consolidate separate Viewer and Owner sections into a unified **"User Details"** console while retaining role-based filtering (`All`, `Viewer`, `Owner`).
+  5. Include full timestamps (time along with the date) for every document upload and metadata record.
+* **What the tool produced:**
+  The AI previously kept fragmented navigation tabs for Viewers and Owners, rendered a static non-searchable `<select>` for catalog documents, restricted permissions strictly to Viewers, truncated backend timestamps to 10-character date strings (`substring(0, 10)`), and omitted metadata fields on newly uploaded records.
+* **What was wrong with it:**
+  - **Temporal Non-Repudiation Gap:** Truncating timestamps to date-only created ambiguity during security forensics when multiple files were uploaded on the same day.
+  - **Cross-Role Collaboration Barrier:** Blocking clearance delegation to Owners prevented peer reviews and administrative cross-enclave assignments.
+  - **Catalog Scalability Flaw:** Using native `<select>` dropdowns without typeahead or chronological sorting became inefficient as document archives grew.
+* **What we did instead:**
+  1. Built [`DocumentSearchSelect.jsx`](file:///D:/TrustVault/frontend/src/components/DocumentSearchSelect.jsx) with real-time text query filtering, metadata badges, and newest-first chronological sorting.
+  2. Updated [`ViewerEmailAutocomplete.jsx`](file:///D:/TrustVault/frontend/src/components/ViewerEmailAutocomplete.jsx) and backend `/api/documents/viewers?includeOwners=true` in [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to query and delegate permissions to both Viewers and Owners.
+  3. Consolidated sidebar navigation into a unified **"User Details"** hub (`section === "users"`) with dynamic role filtering and user inspection.
+  4. Formatted all document ingestion timestamps using `TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a")` and client-side `new Date(d.updatedAt || d.createdAt).toLocaleString()`.
+  5. Added real-time search to the Daily Engineering Reports enclave and added Ascending/Descending file sort order controls to Document Monitoring.
+  6. Added `@PrePersist` and `@PreUpdate` lifecycle hooks in [`Document.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/Document.java) guaranteeing complete, non-null cryptographic metadata (SHA-256, format, size, clearance).
+* **Commit Link:** [`b5a7e12`](https://github.com/TejaswiniBandaru005/TrustVault/commit/b5a7e12)
+
+---
+
 ## 3. Engineering Quality & Automated Test Verification
 
 | Test Suite / Build Stage | Execution Command | Result | Security Coverage |

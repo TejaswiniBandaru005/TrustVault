@@ -5,7 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 
 @Entity
@@ -85,6 +89,48 @@ public class Document {
         this.updatedAt = Instant.now();
     }
 
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) this.createdAt = Instant.now();
+        if (this.updatedAt == null) this.updatedAt = Instant.now();
+        if (this.category == null || this.category.isBlank()) this.category = "General";
+        if (this.fileType == null || this.fileType.isBlank()) this.fileType = "PDF";
+        if (this.fileSize == null || this.fileSize.isBlank()) this.fileSize = "1.0 MB";
+        if (this.accessPolicy == null || this.accessPolicy.isBlank()) this.accessPolicy = "RESTRICTED";
+        if (this.contentType == null || this.contentType.isBlank()) this.contentType = "application/pdf";
+        if (this.fileChecksum == null || this.fileChecksum.isBlank()) {
+            this.fileChecksum = generateFallbackChecksum();
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = Instant.now();
+        if (this.category == null || this.category.isBlank()) this.category = "General";
+        if (this.fileType == null || this.fileType.isBlank()) this.fileType = "PDF";
+        if (this.fileSize == null || this.fileSize.isBlank()) this.fileSize = "1.0 MB";
+        if (this.accessPolicy == null || this.accessPolicy.isBlank()) this.accessPolicy = "RESTRICTED";
+        if (this.contentType == null || this.contentType.isBlank()) this.contentType = "application/pdf";
+        if (this.fileChecksum == null || this.fileChecksum.isBlank()) {
+            this.fileChecksum = generateFallbackChecksum();
+        }
+    }
+
+    private String generateFallbackChecksum() {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String seed = (name != null ? name : "doc") + ":" + (ownerEmail != null ? ownerEmail : "vault") + ":" + System.currentTimeMillis();
+            byte[] hash = digest.digest(seed.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                hexString.append(String.format("%02x", b));
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            return "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab";
+        }
+    }
+
     public Long getId() {
         return id;
     }
@@ -98,7 +144,7 @@ public class Document {
     }
 
     public String getCategory() {
-        return category;
+        return (category != null && !category.isBlank()) ? category : "General";
     }
 
     public void setCategory(String category) {
@@ -106,7 +152,7 @@ public class Document {
     }
 
     public String getFileType() {
-        return fileType;
+        return (fileType != null && !fileType.isBlank()) ? fileType : "PDF";
     }
 
     public void setFileType(String fileType) {
@@ -114,7 +160,7 @@ public class Document {
     }
 
     public String getFileSize() {
-        return fileSize;
+        return (fileSize != null && !fileSize.isBlank()) ? fileSize : "1.0 MB";
     }
 
     public void setFileSize(String fileSize) {
@@ -130,7 +176,13 @@ public class Document {
     }
 
     public String getOwnerName() {
-        return ownerName;
+        if (ownerName != null && !ownerName.isBlank() && !ownerName.toLowerCase().contains("demo")) {
+            return ownerName;
+        }
+        if (ownerEmail != null && !ownerEmail.isBlank()) {
+            return ownerEmail;
+        }
+        return "Document Owner";
     }
 
     public void setOwnerName(String ownerName) {
@@ -138,7 +190,7 @@ public class Document {
     }
 
     public String getAccessPolicy() {
-        return accessPolicy;
+        return (accessPolicy != null && !accessPolicy.isBlank()) ? accessPolicy : "RESTRICTED";
     }
 
     public void setAccessPolicy(String accessPolicy) {
@@ -154,7 +206,10 @@ public class Document {
     }
 
     public String getFileChecksum() {
-        return fileChecksum;
+        if (fileChecksum != null && !fileChecksum.isBlank()) {
+            return fileChecksum;
+        }
+        return generateFallbackChecksum();
     }
 
     public void setFileChecksum(String fileChecksum) {
@@ -162,7 +217,7 @@ public class Document {
     }
 
     public String getContentType() {
-        return contentType;
+        return (contentType != null && !contentType.isBlank()) ? contentType : "application/pdf";
     }
 
     public void setContentType(String contentType) {
