@@ -6764,5 +6764,108 @@ button:focus-visible {
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
 }
 
+/* ==========================================================================
+   Universal Select Option & List Dark/Light Mode Contrast Fixes
+   ========================================================================== */
+
+select {
+  color: var(--text, #0f172a);
+  background-color: var(--card, #ffffff);
+}
+
+select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  padding: 8px 12px !important;
+}
+
+/* Dark mode select and dropdown options */
+.ad-dark select,
+.od-dark select,
+.dark select,
+[data-theme="dark"] select,
+.ad-dark .ad-styled-select,
+.dark .ad-styled-select,
+.od-dark .ad-styled-select {
+  color: #f8fafc !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.ad-dark select option,
+.od-dark select option,
+.dark select option,
+[data-theme="dark"] select option,
+.ad-dark .ad-styled-select option,
+.dark .ad-styled-select option,
+.od-dark .ad-styled-select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Table and list document row contrast in dark mode */
+.ad-dark .ad-table th,
+.od-dark .od-table th {
+  background: #111827 !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid #1f2937 !important;
+}
+
+.ad-dark .ad-table td,
+.od-dark .od-table td {
+  background: #181f30 !important;
+  color: #f1f5f9 !important;
+  border-top: 1px solid #283347 !important;
+}
+
+.ad-dark .ad-table tr:hover td,
+.od-dark .od-table tr:hover td {
+  background: #1e293f !important;
+}
+
+.ad-dark .ad-doc-name strong,
+.od-dark .od-file-cell strong {
+  color: #f8fafc !important;
+}
+
+.ad-dark .ad-doc-name small,
+.od-dark .od-file-cell small {
+  color: #94a3b8 !important;
+}
+
+.ad-dark .ad-category-tag,
+.od-dark .od-category-tag {
+  background: #111827 !important;
+  color: #93c5fd !important;
+  border: 1px solid #1e3a8a !important;
+}
+
+/* Autocomplete Dropdown Dark Mode Contrast */
+.ad-dark .email-autocomplete-dropdown,
+.od-dark .email-autocomplete-dropdown,
+.dark .email-autocomplete-dropdown {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+.ad-dark .email-autocomplete-item,
+.od-dark .email-autocomplete-item,
+.dark .email-autocomplete-item {
+  color: #f8fafc !important;
+}
+
+.ad-dark .email-autocomplete-item-name,
+.od-dark .email-autocomplete-item-name,
+.dark .email-autocomplete-item-name {
+  color: #f8fafc !important;
+}
+
+.ad-dark .email-autocomplete-item-email,
+.od-dark .email-autocomplete-item-email,
+.dark .email-autocomplete-item-email {
+  color: #94a3b8 !important;
+}
+
+
 
 

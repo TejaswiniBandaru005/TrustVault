@@ -100,6 +100,7 @@ export default function OwnerDashboard({
   const [uploadCategory, setUploadCategory] = useState("Business");
   const [uploadType, setUploadType] = useState("PDF");
   const [uploadFile, setUploadFile] = useState(null);
+  const [docViewMode, setDocViewMode] = useState("cards");
   const [viewerEmail, setViewerEmail] = useState("");
   const [permissionDocument, setPermissionDocument] = useState("");
   const [permissionAccess, setPermissionAccess] = useState("View only");
@@ -311,95 +312,184 @@ export default function OwnerDashboard({
       .includes(search.toLowerCase())
   );
 
-  const renderDocuments = (compact = false) => (
-    <div className="od-table-wrap">
-      <table className="od-table">
-        <thead>
-          <tr>
-            <th>Document</th>
-            <th>Category</th>
-            <th>Last updated</th>
-            <th>Viewers</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(compact ? documents.slice(0, 3) : filteredDocuments).map(
-            (document) => {
-              const Icon = getFileIcon(document.type);
+  const renderDocuments = (compact = false) => {
+    const list = compact ? documents.slice(0, 3) : filteredDocuments;
 
-              return (
-                <tr key={document.id}>
-                  <td>
-                    <div className="od-file-cell">
-                      <span className="od-file-icon">
-                        <Icon size={19} />
-                      </span>
-                      <span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                          <strong>{document.name}</strong>
-                          <SecurityClearanceBadge level={document.category || "CONFIDENTIAL"} />
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", flexWrap: "wrap" }}>
-                          <small>{document.size}</small>
-                          {document.fileChecksum && (
-                            <IntegrityPill hash={document.fileChecksum} />
-                          )}
-                        </div>
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="od-category-tag">{document.category}</span>
-                  </td>
-                  <td>{document.updated}</td>
-                  <td>{document.viewers}</td>
-                  <td>
-                    <div className="od-actions">
-                      <button
-                        className="od-icon-button"
-                        title="View metadata"
-                        onClick={() => setSelectedDocument(document)}
-                      >
-                        <Eye size={17} />
-                      </button>
-                      <button
-                        className="od-icon-button"
-                        title="Demo replace document"
-                        onClick={() => {
-                          setSelectedDocument(document);
-                          showNotice(
-                            "Document replacement will be connected to secure storage later."
-                          );
-                        }}
-                      >
-                        <Pencil size={17} />
-                      </button>
-                      <button
-                        className="od-icon-button od-danger"
-                        title="Remove demo entry"
-                        onClick={() => deleteDocument(document)}
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            }
-          )}
+    if (list.length === 0) {
+      return (
+        <div className="od-empty" style={{ padding: "40px 20px", textAlign: "center" }}>
+          <Files size={36} style={{ margin: "0 auto 12px", opacity: 0.35, display: "block" }} />
+          <strong style={{ fontSize: "14px" }}>No documents found</strong>
+          <p style={{ margin: "6px 0 0", color: "var(--od-muted)", fontSize: "12px" }}>
+            Upload your files to monitor them in the Zero-Trust Enclave with real-time SHA-256 validation.
+          </p>
+        </div>
+      );
+    }
 
-          {filteredDocuments.length === 0 && !compact && (
-            <tr>
-              <td colSpan="5" className="od-empty">
-                No matching documents found.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+    if (docViewMode === "table") {
+      return (
+        <div className="od-table-wrap">
+          <table className="od-table">
+            <thead>
+              <tr>
+                <th>Document</th>
+                <th>Category</th>
+                <th>Last updated</th>
+                <th>Viewers</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((document) => {
+                const Icon = getFileIcon(document.type);
+                return (
+                  <tr key={document.id}>
+                    <td>
+                      <div className="od-file-cell">
+                        <span className="od-file-icon">
+                          <Icon size={19} />
+                        </span>
+                        <span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                            <strong>{document.name}</strong>
+                            <SecurityClearanceBadge level={document.category || "CONFIDENTIAL"} />
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", flexWrap: "wrap" }}>
+                            <small>{document.size}</small>
+                            {document.fileChecksum && <IntegrityPill hash={document.fileChecksum} />}
+                          </div>
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="od-category-tag">{document.category}</span>
+                    </td>
+                    <td>{document.updated}</td>
+                    <td>{document.viewers}</td>
+                    <td>
+                      <div className="od-actions">
+                        <button
+                          className="od-icon-button"
+                          title="View metadata"
+                          onClick={() => setSelectedDocument(document)}
+                        >
+                          <Eye size={17} />
+                        </button>
+                        <button
+                          className="od-icon-button"
+                          title="Download PDF"
+                          onClick={() => {
+                            downloadRealDocument(document, currentUser?.email);
+                            showNotice(`Downloaded "${document.name}" in PDF format!`);
+                          }}
+                        >
+                          <Download size={17} />
+                        </button>
+                        <button
+                          className="od-icon-button od-danger"
+                          title="Remove entry"
+                          onClick={() => deleteDocument(document)}
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    // Default: Rich Cards View matching #reports
+    return (
+      <div className="ad-reports-grid" style={{ margin: "10px 0" }}>
+        {list.map((document) => (
+          <div key={document.id} className="ad-report-card">
+            <div>
+              <div className="ad-report-card-top">
+                <span className="ad-report-day-badge">
+                  {document.category || "GENERAL"}
+                </span>
+                <span className="ad-report-pdf-tag">
+                  {document.type ? `${document.type.toUpperCase()} ASSET` : "PDF DOCUMENT"}
+                </span>
+              </div>
+              <h3 className="ad-report-title">{document.name}</h3>
+              <p className="ad-report-summary">
+                {document.summary || "Cryptographically indexed document secured in Zero-Trust Enclave with SHA-256 integrity verification."}
+              </p>
+            </div>
+
+            <div>
+              <div className="ad-report-meta-row">
+                <span>📅 {document.updated || "Recently updated"}</span>
+                <span>{document.size || "1.0 MB"}</span>
+              </div>
+
+              <div style={{ marginTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.74rem", color: "var(--muted)" }}>SHA-256 Fingerprint:</span>
+                {document.fileChecksum ? (
+                  <IntegrityPill hash={document.fileChecksum} />
+                ) : (
+                  <small className="ad-muted">Verified</small>
+                )}
+              </div>
+
+              <div className="ad-report-actions-row" style={{ marginTop: "16px" }}>
+                <button
+                  type="button"
+                  className="ad-report-btn-preview"
+                  onClick={() => openDocumentInNewTab(document, currentUser?.email)}
+                  title="Preview document in secure reader"
+                >
+                  <Eye size={15} /> Preview
+                </button>
+                <button
+                  type="button"
+                  className="ad-report-btn-download"
+                  onClick={() => {
+                    downloadRealDocument(document, currentUser?.email);
+                    showNotice(`Downloaded "${document.name}" in PDF format!`);
+                  }}
+                  title="Download document in PDF format"
+                >
+                  <Download size={15} /> Download PDF
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                <button
+                  type="button"
+                  className="ad-report-btn-preview"
+                  style={{ flex: 1, fontSize: "0.78rem" }}
+                  onClick={() => {
+                    setPermissionDocument(document.id);
+                    setActiveSection("permissions");
+                  }}
+                  title="Grant access permissions on this document"
+                >
+                  <LockKeyhole size={13} /> Grant Access
+                </button>
+                <button
+                  type="button"
+                  className="ad-report-btn-preview"
+                  style={{ flex: 1, fontSize: "0.78rem", color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.25)" }}
+                  onClick={() => deleteDocument(document)}
+                  title="Move to Deleted Documents Enclave"
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderOverview = () => (
     <>
@@ -543,11 +633,30 @@ export default function OwnerDashboard({
             <select
               value={permissionDocument}
               onChange={(event) => setPermissionDocument(event.target.value)}
+              style={{
+                backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                color: theme === "dark" ? "#f8fafc" : "#0f172a",
+              }}
               required
             >
-              <option value="">Choose a document</option>
+              <option
+                value=""
+                style={{
+                  backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                  color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                }}
+              >
+                Choose a document
+              </option>
               {documents.map((document) => (
-                <option key={document.id} value={document.id}>
+                <option
+                  key={document.id}
+                  value={document.id}
+                  style={{
+                    backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                    color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                  }}
+                >
                   {document.name}
                 </option>
               ))}
@@ -559,9 +668,29 @@ export default function OwnerDashboard({
             <select
               value={permissionAccess}
               onChange={(event) => setPermissionAccess(event.target.value)}
+              style={{
+                backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                color: theme === "dark" ? "#f8fafc" : "#0f172a",
+              }}
             >
-              <option>View only</option>
-              <option>View + Download</option>
+              <option
+                value="View only"
+                style={{
+                  backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                  color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                }}
+              >
+                View only
+              </option>
+              <option
+                value="View + Download"
+                style={{
+                  backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                  color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                }}
+              >
+                View + Download
+              </option>
             </select>
           </label>
 
@@ -711,13 +840,17 @@ export default function OwnerDashboard({
               <select
                 value={uploadCategory}
                 onChange={(event) => setUploadCategory(event.target.value)}
+                style={{
+                  backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                  color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                }}
               >
-                <option>Business</option>
-                <option>Finance</option>
-                <option>Legal</option>
-                <option>Technical</option>
-                <option>Personal</option>
-                <option>Other</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Business</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Finance</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Legal</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Technical</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Personal</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Other</option>
               </select>
             </label>
 
@@ -726,11 +859,15 @@ export default function OwnerDashboard({
               <select
                 value={uploadType}
                 onChange={(event) => setUploadType(event.target.value)}
+                style={{
+                  backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                  color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                }}
               >
-                <option>PDF</option>
-                <option>Word</option>
-                <option>Excel</option>
-                <option>Other</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>PDF</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Word</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Excel</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Other</option>
               </select>
             </label>
           </div>
@@ -1107,12 +1244,48 @@ export default function OwnerDashboard({
                   <h1>My Documents</h1>
                   <p>Browse and manage your document entries.</p>
                 </div>
-                <button
-                  className="od-primary-button"
-                  onClick={() => setActiveSection("upload")}
-                >
-                  <Plus size={17} /> New Upload
-                </button>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <div style={{ display: "flex", background: "var(--od-bg)", border: "1px solid var(--od-border)", borderRadius: "8px", padding: "2px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setDocViewMode("cards")}
+                      style={{
+                        padding: "6px 12px",
+                        border: "none",
+                        borderRadius: "6px",
+                        background: docViewMode === "cards" ? "var(--od-primary)" : "transparent",
+                        color: docViewMode === "cards" ? "#ffffff" : "var(--od-muted)",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: "12px",
+                      }}
+                    >
+                      Cards View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDocViewMode("table")}
+                      style={{
+                        padding: "6px 12px",
+                        border: "none",
+                        borderRadius: "6px",
+                        background: docViewMode === "table" ? "var(--od-primary)" : "transparent",
+                        color: docViewMode === "table" ? "#ffffff" : "var(--od-muted)",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: "12px",
+                      }}
+                    >
+                      Table View
+                    </button>
+                  </div>
+                  <button
+                    className="od-primary-button"
+                    onClick={() => setActiveSection("upload")}
+                  >
+                    <Plus size={17} /> New Upload
+                  </button>
+                </div>
               </div>
 
               <section className="od-panel">

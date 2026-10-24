@@ -674,18 +674,20 @@ function AdminDashboard({
         </header>
 
         <div className="ad-content">
-          <div className="ad-page-heading">
-            <div>
-              <span className="ad-eyebrow">SECURITY & GOVERNANCE</span>
-              <h1>{pageTitle}</h1>
-              <p>Manage accounts, monitor documents, and review security activity.</p>
+          {section !== "reports" && (
+            <div className="ad-page-heading">
+              <div>
+                <span className="ad-eyebrow">SECURITY & GOVERNANCE</span>
+                <h1>{pageTitle}</h1>
+                <p>Manage accounts, monitor documents, and review security activity.</p>
+              </div>
+              <button className="ad-secondary-btn" onClick={() => addNotice("This dashboard displays sample data. Refreshing does not fetch server data.")}>
+                <RefreshCw size={15} /> Refresh view
+              </button>
             </div>
-            <button className="ad-secondary-btn" onClick={() => addNotice("This dashboard displays sample data. Refreshing does not fetch server data.")}>
-              <RefreshCw size={15} /> Refresh view
-            </button>
-          </div>
+          )}
 
-          {notice && (
+          {notice && section !== "reports" && (
             <div className="ad-notice" role="status">
               <AlertTriangle size={18} />
               <span>{notice}</span>
@@ -703,73 +705,6 @@ function AdminDashboard({
                 <Stat icon={FileText} label="Documents" value={documents.length} note="Across all demo owners" tone="purple" />
                 <Stat icon={ShieldAlert} label="Security Alerts" value={events.filter((event) => event.type === "danger").length} note="Sample alert events" tone="red" />
               </div>
-
-              {/* Daily Engineering Milestone Reports Showcase */}
-              <section className="ad-panel" style={{ padding: "26px 28px" }}>
-                <div className="ad-card-header" style={{ marginBottom: "20px" }}>
-                  <div className="ad-card-header-info">
-                    <div className="ad-card-header-icon" style={{ background: "rgba(37, 99, 235, 0.12)" }}>
-                      <CalendarDays size={24} />
-                    </div>
-                    <div className="ad-card-header-text">
-                      <h2>Daily Engineering Progress Reports (Day 1 – 7)</h2>
-                      <p>7 authenticated milestone reports documenting the architecture, STRIDE threat model, OTP engine, and cloud deployment in PDF format.</p>
-                    </div>
-                  </div>
-                  <button
-                    className="ad-secondary-btn"
-                    onClick={() => setSection("reports")}
-                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-                  >
-                    <span>View All 7 Reports</span>
-                    <ArrowUpRight size={14} />
-                  </button>
-                </div>
-
-                <div className="ad-reports-grid">
-                  {starterDocuments.map((doc) => (
-                    <div key={doc.id} className="ad-report-card">
-                      <div>
-                        <div className="ad-report-card-top">
-                          <span className="ad-report-day-badge">DAY {String(doc.day || "").padStart(2, "0")} · {doc.category}</span>
-                          <span className="ad-report-pdf-tag">PDF DOCUMENT</span>
-                        </div>
-                        <h3 className="ad-report-title">{doc.name}</h3>
-                        <p className="ad-report-summary">{doc.summary}</p>
-                      </div>
-
-                      <div>
-                        <div className="ad-report-meta-row">
-                          <span>📅 {doc.updated}</span>
-                          <IntegrityPill hash={doc.fileChecksum} />
-                        </div>
-
-                        <div className="ad-report-actions-row" style={{ marginTop: "14px" }}>
-                          <button
-                            type="button"
-                            className="ad-report-btn-preview"
-                            onClick={() => openDocumentInNewTab(doc)}
-                            title="Preview document in secure reader"
-                          >
-                            <Eye size={14} /> Preview
-                          </button>
-                          <button
-                            type="button"
-                            className="ad-report-btn-download"
-                            onClick={() => {
-                              downloadRealDocument(doc);
-                              addNotice(`Downloaded "${doc.name}" in PDF format!`);
-                            }}
-                            title="Download document in PDF format"
-                          >
-                            <Download size={14} /> Download PDF
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
 
               <div className="ad-overview-grid">
                 <section className="ad-panel ad-request-panel">
@@ -809,33 +744,7 @@ function AdminDashboard({
           )}
 
           {section === "reports" && (
-            <div className="ad-reports-wrapper" style={{ maxWidth: "100%" }}>
-              <div className="ad-reports-hero-banner">
-                <div className="ad-reports-hero-content">
-                  <h2>
-                    <CalendarDays size={26} style={{ color: "var(--primary)" }} />
-                    Daily Engineering Progress Reports Enclave
-                  </h2>
-                  <p>
-                    Official Day 1 through Day 7 technical progress reports detailing TrustVault's Zero-Trust architecture, STRIDE threat analysis, Neon PostgreSQL cryptographic ingestion, multi-factor authentication, Vercel & Render cloud topology, and delegation hardening. All reports are available in PDF format.
-                  </p>
-                </div>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button
-                    className="ad-primary-btn"
-                    onClick={() => {
-                      starterDocuments.forEach((doc, idx) => {
-                        setTimeout(() => downloadRealDocument(doc), idx * 250);
-                      });
-                      addNotice("Exporting all 7 Daily Engineering Progress Reports in PDF format...");
-                    }}
-                    style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px" }}
-                  >
-                    <Download size={16} /> Download All 7 Reports (.pdf)
-                  </button>
-                </div>
-              </div>
-
+            <div className="ad-reports-wrapper" style={{ maxWidth: "100%", paddingTop: "8px" }}>
               <div className="ad-reports-grid">
                 {starterDocuments.map((doc) => (
                   <div key={doc.id} className="ad-report-card">
@@ -914,10 +823,18 @@ function AdminDashboard({
                   <Search size={17} />
                   <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email..." />
                 </div>
-                <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filter role">
-                  <option>All</option>
-                  <option>Viewer</option>
-                  <option>Owner</option>
+                <select
+                  value={roleFilter}
+                  onChange={(event) => setRoleFilter(event.target.value)}
+                  aria-label="Filter role"
+                  style={{
+                    backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                    color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                  }}
+                >
+                  <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>All</option>
+                  <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Viewer</option>
+                  <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Owner</option>
                 </select>
               </div>
 
@@ -1043,11 +960,30 @@ function AdminDashboard({
                         className="ad-styled-select"
                         value={grantDocumentId}
                         onChange={(e) => setGrantDocumentId(e.target.value)}
+                        style={{
+                          backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                        }}
                         required
                       >
-                        <option value="">-- Choose document from catalog --</option>
+                        <option
+                          value=""
+                          style={{
+                            backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                            color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                          }}
+                        >
+                          -- Choose document from catalog --
+                        </option>
                         {documents.map((doc) => (
-                          <option key={doc.id} value={doc.id}>
+                          <option
+                            key={doc.id}
+                            value={doc.id}
+                            style={{
+                              backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                              color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                            }}
+                          >
                             {doc.name} [{doc.category || "General"}] · {doc.owner}
                           </option>
                         ))}
@@ -1063,9 +999,29 @@ function AdminDashboard({
                         className="ad-styled-select"
                         value={grantAccessLevel}
                         onChange={(e) => setGrantAccessLevel(e.target.value)}
+                        style={{
+                          backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                        }}
                       >
-                        <option value="View only">View only (In-Browser Protected Reader)</option>
-                        <option value="View + Download">View + Download (Allow Decrypted PDF Export)</option>
+                        <option
+                          value="View only"
+                          style={{
+                            backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                            color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                          }}
+                        >
+                          View only (In-Browser Protected Reader)
+                        </option>
+                        <option
+                          value="View + Download"
+                          style={{
+                            backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                            color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                          }}
+                        >
+                          View + Download (Allow Decrypted PDF Export)
+                        </option>
                       </select>
                     </div>
                   </div>
@@ -1159,13 +1115,17 @@ function AdminDashboard({
                         className="ad-styled-select"
                         value={uploadCategory}
                         onChange={(e) => setUploadCategory(e.target.value)}
+                        style={{
+                          backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                        }}
                       >
-                        <option value="Technical">Technical</option>
-                        <option value="Engineering">Engineering</option>
-                        <option value="Architecture">Architecture</option>
-                        <option value="Security">Security</option>
-                        <option value="Compliance">Compliance</option>
-                        <option value="Business">Business</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Technical">Technical</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Engineering">Engineering</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Architecture">Architecture</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Security">Security</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Compliance">Compliance</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Business">Business</option>
                       </select>
                     </div>
 
@@ -1174,10 +1134,17 @@ function AdminDashboard({
                         <span>Security Clearance</span>
                         <span className="ad-form-label-hint">Access tier</span>
                       </label>
-                      <select className="ad-styled-select" defaultValue="HIGH">
-                        <option value="HIGH">Level 3 · Restricted Enclave</option>
-                        <option value="MEDIUM">Level 2 · Confidential</option>
-                        <option value="PUBLIC">Level 1 · General Workspace</option>
+                      <select
+                        className="ad-styled-select"
+                        defaultValue="HIGH"
+                        style={{
+                          backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                          color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                        }}
+                      >
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="HIGH">Level 3 · Restricted Enclave</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="MEDIUM">Level 2 · Confidential</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="PUBLIC">Level 1 · General Workspace</option>
                       </select>
                     </div>
                   </div>
