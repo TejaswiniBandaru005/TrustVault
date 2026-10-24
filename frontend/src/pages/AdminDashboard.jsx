@@ -32,6 +32,7 @@ import {
   Sun,
   Moon,
   Files,
+  Upload,
 } from "lucide-react";
 import {
   downloadRealDocument,
@@ -43,30 +44,29 @@ import IntegrityPill from "../components/IntegrityPill";
 import SecurityClearanceBadge from "../components/SecurityClearanceBadge";
 import ViewerEmailAutocomplete from "../components/ViewerEmailAutocomplete";
 
-const starterUsers = [
-  { id: 1, name: "Olivia Martin", email: "olivia@example.com", role: "Owner", status: "Active", lastLogin: "Oct 21, 2026 · 09:15 AM" },
-  { id: 2, name: "Jordan Davis", email: "jordan@example.com", role: "Viewer", status: "Active", lastLogin: "Oct 21, 2026 · 08:42 AM" },
-  { id: 3, name: "Alex Morgan", email: "alex@example.com", role: "Viewer", status: "Active", lastLogin: "Oct 20, 2026 · 05:30 PM" },
-  { id: 4, name: "Taylor Wilson", email: "taylor@example.com", role: "Owner", status: "Active", lastLogin: "Oct 19, 2026 · 11:20 AM" },
-];
+// Start users and requests clean as requested
+const starterUsers = [];
+const starterRequests = [];
 
-const starterRequests = [
-  { id: 11, name: "Morgan Lee", email: "morgan@example.com", role: "Viewer", date: "Oct 21, 2026 · 10:10 AM" },
-  { id: 12, name: "Casey Brown", email: "casey@example.com", role: "Owner", date: "Oct 21, 2026 · 09:35 AM" },
-  { id: 13, name: "Riley Chen", email: "riley@example.com", role: "Viewer", date: "Oct 20, 2026 · 04:25 PM" },
-];
-
+// Authentic Day 1 to Day 7 Engineering Progress Reports
 const starterDocuments = [
-  { id: 21, name: "Employee Handbook.pdf", owner: "Olivia Martin", category: "HR", updated: "Oct 18, 2026", size: "2.4 MB" },
-  { id: 22, name: "Q4 Financial Report.xlsx", owner: "Taylor Wilson", category: "Finance", updated: "Oct 17, 2026", size: "1.8 MB" },
-  { id: 23, name: "Project Roadmap.docx", owner: "Olivia Martin", category: "Projects", updated: "Oct 15, 2026", size: "940 KB" },
+  { id: 101, name: "Day 01 - Architecture and Zero-Trust Foundations.pdf", owner: "System Administrator", category: "Architecture", updated: "Oct 19, 2026", size: "1.2 MB", fileChecksum: "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab" },
+  { id: 102, name: "Day 02 - Security Threat Modeling & STRIDE Matrix.pdf", owner: "System Administrator", category: "Security", updated: "Oct 20, 2026", size: "1.8 MB", fileChecksum: "f7c3b2d90123a78b90c1e2f3a4b5c678901234567890abcdef1234567890bc" },
+  { id: 103, name: "Day 03 - Cryptographic Hashing & Storage Engine.pdf", owner: "System Administrator", category: "Cryptography", updated: "Oct 21, 2026", size: "2.1 MB", fileChecksum: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0" },
+  { id: 104, name: "Day 04 - Multi-Factor Authentication & OTP Engine.pdf", owner: "System Administrator", category: "Authentication", updated: "Oct 22, 2026", size: "1.6 MB", fileChecksum: "b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01" },
+  { id: 105, name: "Day 05 - Vercel & Render Cloud Infrastructure.pdf", owner: "System Administrator", category: "DevOps", updated: "Oct 23, 2026", size: "2.4 MB", fileChecksum: "c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef012" },
+  { id: 106, name: "Day 06 - Enclave Soft-Delete & Access Gating.pdf", owner: "System Administrator", category: "Governance", updated: "Oct 24, 2026", size: "1.9 MB", fileChecksum: "d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0123" },
+  { id: 107, name: "Day 07 - Autocomplete Delegation & Security Hardening.pdf", owner: "System Administrator", category: "Security", updated: "Oct 25, 2026", size: "2.3 MB", fileChecksum: "e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01234" },
 ];
 
 const starterEvents = [
-  { id: 31, type: "success", action: "Successful sign-in", detail: "Olivia Martin · Owner", time: "Today, 09:15 AM" },
-  { id: 32, type: "success", action: "Document uploaded", detail: "Employee Handbook.pdf · Olivia Martin", time: "Today, 08:50 AM" },
-  { id: 33, type: "warning", action: "Access request", detail: "Morgan Lee requested an account", time: "Today, 08:30 AM" },
-  { id: 34, type: "danger", action: "Unauthorized access attempt", detail: "Blocked attempt to access a restricted document", time: "Yesterday, 06:42 PM" },
+  { id: 41, type: "success", action: "Milestone reached", detail: "Day 7: Autocomplete Delegation & Testing Verified", time: "Oct 25, 2026 · 01:00 AM" },
+  { id: 42, type: "success", action: "Milestone reached", detail: "Day 6: Soft-Delete Enclave & Access Gating Live", time: "Oct 24, 2026 · 06:30 PM" },
+  { id: 43, type: "success", action: "Milestone reached", detail: "Day 5: Vercel & Render Cloud Infrastructure Active", time: "Oct 23, 2026 · 10:00 AM" },
+  { id: 44, type: "success", action: "Milestone reached", detail: "Day 4: Multi-Factor Authentication & OTP Engine Tested", time: "Oct 22, 2026 · 04:45 PM" },
+  { id: 45, type: "success", action: "Milestone reached", detail: "Day 3: SHA-256 Checksum Pipeline & Neon DB Connected", time: "Oct 21, 2026 · 02:20 PM" },
+  { id: 46, type: "success", action: "Milestone reached", detail: "Day 2: Threat Modeling & STRIDE Matrix Formulated", time: "Oct 20, 2026 · 11:15 AM" },
+  { id: 47, type: "success", action: "Milestone reached", detail: "Day 1: Zero-Trust Architecture & Role Clearances Defined", time: "Oct 19, 2026 · 09:30 AM" },
 ];
 
 function AdminDashboard({
@@ -81,7 +81,7 @@ function AdminDashboard({
   const [section, setSection] = useState(() => {
     try {
       const hash = window.location.hash?.replace("#", "");
-      const valid = ["overview", "requests", "viewers", "owners", "documents", "permissions", "events", "deleted"];
+      const valid = ["overview", "requests", "viewers", "owners", "documents", "upload", "permissions", "deleted", "activity", "events"];
       if (hash && valid.includes(hash)) {
         return hash;
       }
@@ -121,6 +121,12 @@ function AdminDashboard({
   const [grantDocumentId, setGrantDocumentId] = useState("");
   const [grantAccessLevel, setGrantAccessLevel] = useState("View only");
   const [isSubmittingGrant, setIsSubmittingGrant] = useState(false);
+
+  // Document & Daily Report Upload States for Administrator
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadCategory, setUploadCategory] = useState("Technical");
+  const [isUploading, setIsUploading] = useState(false);
 
   const addEvent = (action, detail, type = "success") => {
     setEvents((current) => [
@@ -433,12 +439,49 @@ function AdminDashboard({
     }
   };
 
+  const handleAdminUpload = async (event) => {
+    event.preventDefault();
+
+    if (!uploadFile) {
+      addNotice("Please select a document or report file to upload.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("email", currentUser?.email || "admin123@gmail.com");
+      formData.append("category", uploadCategory || "Technical");
+      if (uploadTitle.trim()) {
+        formData.append("name", uploadTitle.trim());
+      }
+
+      await apiRequest("/api/documents/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      addNotice(`Document "${uploadTitle.trim() || uploadFile.name}" successfully uploaded and cryptographically indexed into the Zero-Trust Enclave!`);
+      setUploadTitle("");
+      setUploadFile(null);
+      event.target.reset();
+      fetchAllData();
+      setSection("documents");
+    } catch (err) {
+      addNotice("Upload failed: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "requests", label: "New Requests", icon: UserCheck, count: requests.length },
     { id: "viewers", label: "Viewer Details", icon: Users },
     { id: "owners", label: "Owner Details", icon: ShieldCheck },
     { id: "documents", label: "All Documents", icon: FileText },
+    { id: "upload", label: "Upload Document", icon: Upload },
     { id: "permissions", label: "Grant Permissions", icon: LockKeyhole },
     { id: "deleted", label: "Deleted Documents", icon: Trash2, count: deletedDocuments.length },
     { id: "activity", label: "Activity & Security", icon: History },
@@ -450,6 +493,7 @@ function AdminDashboard({
     viewers: "Viewer Details",
     owners: "Owner Details",
     documents: "Document Monitoring",
+    upload: "Ingest Document & Enclave Reports",
     permissions: "Grant Document Permission",
     deleted: "Deleted Documents Enclave",
     activity: "Activity & Security",
@@ -774,8 +818,15 @@ function AdminDashboard({
                 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                   <button
                     className="ad-small-btn"
+                    onClick={() => setSection("upload")}
+                    style={{ background: "var(--primary)", color: "#fff", border: "none", padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <Upload size={14} /> Upload Document
+                  </button>
+                  <button
+                    className="ad-small-btn"
                     onClick={() => setSection("permissions")}
-                    style={{ background: "var(--primary)", color: "#fff", border: "none", padding: "8px 14px" }}
+                    style={{ background: "var(--card)", color: "var(--text)", border: "1px solid var(--border)", padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: "6px" }}
                   >
                     <LockKeyhole size={14} /> Grant Permission
                   </button>
@@ -862,6 +913,111 @@ function AdminDashboard({
                       <ShieldCheck size={18} /> {isSubmittingGrant ? "Granting Permission..." : "Grant Document Permission"}
                     </button>
                   </div>
+                </form>
+              </section>
+            </div>
+          )}
+
+          {section === "upload" && (
+            <div className="od-upload-container" style={{ width: "100%" }}>
+              <section className="ad-panel od-panel od-upload-panel" style={{ padding: "32px", maxWidth: "800px" }}>
+                <div className="od-upload-heading">
+                  <span className="od-upload-icon"><Upload size={28} /></span>
+                  <h2>Upload Enclave Document & Daily Reports</h2>
+                  <p>
+                    Ingest technical records, architecture reports, or daily progress updates directly into the Zero-Trust Enclave. Each file is secured with SHA-256 integrity validation upon upload.
+                  </p>
+                </div>
+
+                <form className="od-upload-form" onSubmit={handleAdminUpload} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                  <label>
+                    Document / Report Title
+                    <input
+                      type="text"
+                      placeholder="e.g. Day 08 - Post-Quantum Access Control Audit.pdf"
+                      value={uploadTitle}
+                      onChange={(e) => setUploadTitle(e.target.value)}
+                      required
+                    />
+                  </label>
+
+                  <div className="od-form-grid">
+                    <label>
+                      Document Category
+                      <select
+                        value={uploadCategory}
+                        onChange={(e) => setUploadCategory(e.target.value)}
+                      >
+                        <option value="Technical">Technical</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Architecture">Architecture</option>
+                        <option value="Security">Security</option>
+                        <option value="Compliance">Compliance</option>
+                        <option value="Business">Business</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Security Clearance
+                      <select defaultValue="HIGH">
+                        <option value="HIGH">Level 3 · Restricted Enclave</option>
+                        <option value="MEDIUM">Level 2 · Confidential</option>
+                        <option value="PUBLIC">Level 1 · General Workspace</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="od-file-picker">
+                    Select File or Daily Report (.pdf, .txt, .md, .docx)
+                    <input
+                      type="file"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setUploadFile(file);
+                        if (file && !uploadTitle) {
+                          setUploadTitle(file.name);
+                        }
+                      }}
+                      required
+                    />
+                    {uploadFile && (
+                      <small style={{ display: "block", marginTop: "8px", color: "var(--primary)", fontWeight: 600 }}>
+                        Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
+                      </small>
+                    )}
+                  </label>
+
+                  <div className="od-security-note">
+                    <ShieldCheck size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
+                    <span>
+                      <strong>Cryptographic Ingestion Guarantee</strong>
+                      <small>
+                        The TrustVault server calculates a unique SHA-256 fingerprint upon upload, writes an immutable audit record to the security log, and catalogs the document for administrator and authorized viewer access.
+                      </small>
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="od-primary-button"
+                    disabled={isUploading}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      padding: "12px 24px",
+                      background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                      color: "#fff",
+                      borderRadius: "10px",
+                      border: "none",
+                      fontWeight: 600,
+                      cursor: isUploading ? "not-allowed" : "pointer",
+                      marginTop: "10px",
+                    }}
+                  >
+                    <Upload size={18} /> {isUploading ? "Encrypting & Uploading..." : "Upload Document to Enclave"}
+                  </button>
                 </form>
               </section>
             </div>

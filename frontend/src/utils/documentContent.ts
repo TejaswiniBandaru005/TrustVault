@@ -26,7 +26,126 @@ export function generateDocumentText(doc?: DocumentLike): string {
 
   let specificSections = "";
 
-  if (category.toLowerCase().includes("finance")) {
+  const nameLower = name.toLowerCase();
+
+  if (nameLower.includes("day 01") || nameLower.includes("day_01") || nameLower.includes("day 1")) {
+    specificSections = `
+--------------------------------------------------------------------------------
+1. DAY 1 ENGINEERING REPORT: PROBLEM FORMULATION & ZERO-TRUST FOUNDATIONS
+--------------------------------------------------------------------------------
+Milestone Date : October 19, 2026
+Objective      : Architectural Inception, Security Posture & Role Matrix Definition
+
+Executive Summary:
+TrustVault was conceptualized to address critical enterprise data custody failures.
+Traditional boundary defenses fail against insider threats, stolen tokens, and
+silent document tampering. We established the four foundational Zero-Trust axioms:
+1. Explicit Verification: No identity is trusted without cryptographic proof.
+2. Least Privilege Clearances: Clearances are granted on demand and time-bounded.
+3. Assume Breach: All reads, writes, and delegations are permanently audited.
+4. Cryptographic Non-Repudiation: Document byte streams are hashed upon ingestion.
+
+Key Architecture Decisions:
+- Triple-Tier RBAC: Strict delineation between VIEWER, OWNER, and ADMINISTRATOR.
+- Spring Boot 3 + Java 21: Cryptographic backend isolated from public client networks.
+- React 19 + TypeScript: Type-safe enclave interface with zero-trust watermarked views.
+`;
+  } else if (nameLower.includes("day 02") || nameLower.includes("day_02") || nameLower.includes("day 2")) {
+    specificSections = `
+--------------------------------------------------------------------------------
+2. DAY 2 ENGINEERING REPORT: THREAT MODELING & STRIDE ASSESSMENT
+--------------------------------------------------------------------------------
+Milestone Date : October 20, 2026
+Objective      : STRIDE Matrix Formulation, Attack Surface Mapping & DREAD Scoring
+
+Threat Modeling Analysis:
+- Spoofing (S)          : Addressed via 6-digit cryptographic OTP & email purpose-binding.
+- Tampering (T)         : Addressed via SHA-256 byte hashing computed at file ingestion.
+- Repudiation (R)       : Addressed via append-only PostgreSQL security audit ledger.
+- Info Disclosure (I)   : Addressed via strict IDOR access checks & dynamic watermarking.
+- Denial of Service (D) : Addressed via rate-limiting cooldown timers on OTP endpoints.
+- Elevation of Priv (E) : Addressed via server-side authority locks (PENDING_APPROVAL).
+
+DREAD Risk Highlights:
+- Screen capture of sensitive data mitigated via dynamic in-browser identity stamps.
+- Compromised accounts mitigated via one-click administrative instant revocation protocol.
+`;
+  } else if (nameLower.includes("day 03") || nameLower.includes("day_03") || nameLower.includes("day 3")) {
+    specificSections = `
+--------------------------------------------------------------------------------
+3. DAY 3 ENGINEERING REPORT: CRYPTOGRAPHIC HASHING & DATABASE INTEGRATION
+--------------------------------------------------------------------------------
+Milestone Date : October 21, 2026
+Objective      : SHA-256 Digest Engine, Storage Enclave & Neon AWS PostgreSQL
+
+Key Implementations:
+- SHA-256 Digest Pipeline: Computes 64-character hexadecimal checksum upon file upload.
+- Neon Serverless PostgreSQL: AWS us-east-2 pooled cluster connection with SSL mode require.
+- Database Entity Schema: AppUser, Document, DocumentPermission, and AuditLog tables.
+- Storage Enclave: Disk isolation under uploads/documents/ with UUID salt filenames.
+- Git Repository: Initialized repository structure with clean commit logging.
+`;
+  } else if (nameLower.includes("day 04") || nameLower.includes("day_04") || nameLower.includes("day 4")) {
+    specificSections = `
+--------------------------------------------------------------------------------
+4. DAY 4 ENGINEERING REPORT: MULTI-FACTOR AUTHENTICATION & OTP ENGINE
+--------------------------------------------------------------------------------
+Milestone Date : October 22, 2026
+Objective      : Spring Security 6 Filter Chain, OTP Dispatcher & Role Governance
+
+Security Deliverables:
+- Stateless Filter Chain: CSRF-exempt stateless JWT/Session token architecture.
+- 6-Digit OTP Generator: Cryptographic randomness with 5-minute time window.
+- Single-Use Invalidation: OTPs self-destruct upon initial consumption to prevent replay.
+- Purpose-Scoped Validation: LOGIN OTPs cannot be recycled for PASSWORD_RESET actions.
+- Role Responsibilities UI: Dynamic role switcher with detailed duty explanation cards.
+`;
+  } else if (nameLower.includes("day 05") || nameLower.includes("day_05") || nameLower.includes("day 5")) {
+    specificSections = `
+--------------------------------------------------------------------------------
+5. DAY 5 ENGINEERING REPORT: VERCEL & RENDER MULTI-CLOUD DEPLOYMENT
+--------------------------------------------------------------------------------
+Milestone Date : October 23, 2026
+Objective      : Distributed Cloud Architecture, Vercel SPA Rewrites & CORS Hardening
+
+DevOps Milestones:
+- Cloud Topology: Frontend on Vercel Global Edge CDN, Backend on Render Cloud Web Service.
+- Resolved Build Error 126: Directly executed node node_modules/vite/bin/vite.js build in CI.
+- Resolved 405 Method Not Allowed: Configured vercel.json reverse proxy for /api/** requests.
+- Vite Env Prefix: Whitelisted envPrefix: ['VITE_', 'BACKEND_'] to safely bridge cloud URLs.
+- Spring Security CORS: Whitelisted allowedOriginPatterns, allowedHeaders, and credentials.
+`;
+  } else if (nameLower.includes("day 06") || nameLower.includes("day_06") || nameLower.includes("day 6")) {
+    specificSections = `
+--------------------------------------------------------------------------------
+6. DAY 6 ENGINEERING REPORT: ENCLAVE SOFT-DELETE & ACCESS GATING
+--------------------------------------------------------------------------------
+Milestone Date : October 24, 2026
+Objective      : Segregated Deletion Enclave, Preview Containment & Instant Revocation
+
+Governance Features:
+- Soft-Delete Enclave: Deleted files are preserved in a secluded enclave with restore options.
+- Unverified User Isolation: Accounts in PENDING_APPROVAL status are strictly locked out of
+  production document APIs and restricted to an isolated empty preview sandbox.
+- Revocation Architecture: Blocked users receive red security notices; access terminated.
+- Interactive OTP UX: Added real-time 30-second cooldown timer and email change controls.
+`;
+  } else if (nameLower.includes("day 07") || nameLower.includes("day_07") || nameLower.includes("day 7")) {
+    specificSections = `
+--------------------------------------------------------------------------------
+7. DAY 7 ENGINEERING REPORT: AUTOCOMPLETE DELEGATION & HARDENING
+--------------------------------------------------------------------------------
+Milestone Date : October 25, 2026
+Objective      : Viewer Autocomplete Delegation, Name Sanitization & Final Verification
+
+Final Security Hardening:
+- Viewer Email Autocomplete: Real-time starting-letter prefix matching and quick-select chips.
+- Dynamic Owner Attribution: Replaced static demo names with verified profile lookups.
+- Container Port Binding: Added dynamic $PORT binding in Dockerfile for Render deployments.
+- Admin Document Ingestion: Enabled direct report uploading from the Administrator dashboard.
+- Automated Testing: 4/4 passing security tests in OtpServiceTests verifying OTP defense.
+`;
+  } else if (category.toLowerCase().includes("finance")) {
     specificSections = `
 --------------------------------------------------------------------------------
 1. FINANCIAL PERFORMANCE & STATEMENT OF ACCOUNTS

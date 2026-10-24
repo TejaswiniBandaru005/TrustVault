@@ -26,4 +26,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findAllDeletedDocuments();
 
     long countByOwnerEmailIgnoreCase(String ownerEmail);
+
+    java.util.Optional<Document> findByNameIgnoreCase(String name);
 }
