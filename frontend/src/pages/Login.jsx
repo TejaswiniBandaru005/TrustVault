@@ -28,10 +28,10 @@ const getDefaultCredentials = (roleName) => {
     case "owner":
       return { email: "owner1@example.com", password: "Owner1@123" };
     case "admin":
-      return { email: "admin123@gmail.com", password: "admin@123" };
     case "viewer":
     default:
-      return { email: "viewer1@example.com", password: "Viewer1@123" };
+      // Default credentials removed for both admin and viewer as requested
+      return { email: "", password: "" };
   }
 };
 
@@ -523,11 +523,11 @@ function Login({ role, onNavigate, onAuthenticated, onPreview, initialEmail }) {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder={
-                      currentRole === "admin"
-                        ? "admin123@gmail.com"
-                        : currentRole === "owner"
+                      currentRole === "owner"
                         ? "owner1@example.com"
-                        : "viewer1@example.com"
+                        : currentRole === "admin"
+                        ? "admin@enterprise.com"
+                        : "viewer@enterprise.com"
                     }
                     autoComplete="username"
                     required
@@ -542,11 +542,9 @@ function Login({ role, onNavigate, onAuthenticated, onPreview, initialEmail }) {
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder={
-                        currentRole === "admin"
-                          ? "admin@123"
-                          : currentRole === "owner"
+                        currentRole === "owner"
                           ? "Owner1@123"
-                          : "Viewer1@123"
+                          : "Enter password"
                       }
                       autoComplete="current-password"
                       required

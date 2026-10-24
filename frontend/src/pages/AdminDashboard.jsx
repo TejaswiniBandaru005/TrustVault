@@ -41,6 +41,7 @@ import TrustVaultLogo from "../components/TrustVaultLogo";
 import ThemePalettePicker from "../components/ThemePalettePicker";
 import IntegrityPill from "../components/IntegrityPill";
 import SecurityClearanceBadge from "../components/SecurityClearanceBadge";
+import ViewerEmailAutocomplete from "../components/ViewerEmailAutocomplete";
 
 const starterUsers = [
   { id: 1, name: "Olivia Martin", email: "olivia@example.com", role: "Owner", status: "Active", lastLogin: "Oct 21, 2026 · 09:15 AM" },
@@ -80,7 +81,7 @@ function AdminDashboard({
   const [section, setSection] = useState(() => {
     try {
       const hash = window.location.hash?.replace("#", "");
-      const valid = ["overview", "requests", "viewers", "owners", "documents", "events", "deleted"];
+      const valid = ["overview", "requests", "viewers", "owners", "documents", "permissions", "events", "deleted"];
       if (hash && valid.includes(hash)) {
         return hash;
       }
@@ -114,6 +115,12 @@ function AdminDashboard({
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+
+  // Grant Document Permission States for Administrator
+  const [grantViewerEmail, setGrantViewerEmail] = useState("");
+  const [grantDocumentId, setGrantDocumentId] = useState("");
+  const [grantAccessLevel, setGrantAccessLevel] = useState("View only");
+  const [isSubmittingGrant, setIsSubmittingGrant] = useState(false);
 
   const addEvent = (action, detail, type = "success") => {
     setEvents((current) => [
@@ -389,12 +396,50 @@ function AdminDashboard({
     });
   };
 
+  const handleAdminGrantPermission = async (e) => {
+    e.preventDefault();
+    if (!grantViewerEmail.trim() || !grantDocumentId) {
+      addNotice("Please select a document and enter/select a viewer email.");
+      return;
+    }
+
+    const docObj = documents.find((d) => String(d.id) === String(grantDocumentId));
+    if (!docObj) {
+      addNotice("Selected document not found.");
+      return;
+    }
+
+    setIsSubmittingGrant(true);
+    try {
+      await apiRequest("/api/documents/grant-access", {
+        method: "POST",
+        body: JSON.stringify({
+          documentId: docObj.id,
+          viewerEmail: grantViewerEmail.trim(),
+          canView: true,
+          canDownload: grantAccessLevel === "View + Download",
+          ownerEmail: currentUser?.email || "admin123@gmail.com",
+        }),
+      });
+
+      addNotice(`Access granted on "${docObj.name}" to ${grantViewerEmail}!`);
+      setGrantViewerEmail("");
+      setGrantDocumentId("");
+      fetchAllData();
+    } catch (err) {
+      addNotice("Permission grant failed: " + err.message);
+    } finally {
+      setIsSubmittingGrant(false);
+    }
+  };
+
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "requests", label: "New Requests", icon: UserCheck, count: requests.length },
     { id: "viewers", label: "Viewer Details", icon: Users },
     { id: "owners", label: "Owner Details", icon: ShieldCheck },
     { id: "documents", label: "All Documents", icon: FileText },
+    { id: "permissions", label: "Grant Permissions", icon: LockKeyhole },
     { id: "deleted", label: "Deleted Documents", icon: Trash2, count: deletedDocuments.length },
     { id: "activity", label: "Activity & Security", icon: History },
   ];
@@ -405,6 +450,7 @@ function AdminDashboard({
     viewers: "Viewer Details",
     owners: "Owner Details",
     documents: "Document Monitoring",
+    permissions: "Grant Document Permission",
     deleted: "Deleted Documents Enclave",
     activity: "Activity & Security",
   }[section];
@@ -723,9 +769,18 @@ function AdminDashboard({
               <div className="ad-panel-heading">
                 <div>
                   <h2>All Workspace Documents</h2>
-                  <p>Inspect document metadata or remove an entry from the demo.</p>
+                  <p>Inspect document metadata or manage document security policies.</p>
                 </div>
-                <span className="ad-count-pill">{filteredDocuments.length} documents</span>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <button
+                    className="ad-small-btn"
+                    onClick={() => setSection("permissions")}
+                    style={{ background: "var(--primary)", color: "#fff", border: "none", padding: "8px 14px" }}
+                  >
+                    <LockKeyhole size={14} /> Grant Permission
+                  </button>
+                  <span className="ad-count-pill">{filteredDocuments.length} documents</span>
+                </div>
               </div>
               <div className="ad-toolbar">
                 <div className="ad-search">
@@ -735,6 +790,81 @@ function AdminDashboard({
               </div>
               <DocumentTable documents={filteredDocuments} onInspect={setSelectedDocument} onDelete={deleteDocument} />
             </section>
+          )}
+
+          {section === "permissions" && (
+            <div className="od-permissions-container" style={{ width: "100%" }}>
+              <section className="ad-panel od-panel" style={{ padding: "28px" }}>
+                <div className="od-panel-heading">
+                  <div>
+                    <h2>Grant Document Permission</h2>
+                    <p>Authorize a verified viewer to view or download a selected document across any enclave.</p>
+                  </div>
+                  <LockKeyhole size={24} style={{ color: "var(--primary)" }} />
+                </div>
+
+                <form className="od-permission-form" onSubmit={handleAdminGrantPermission} style={{ maxWidth: "700px", marginTop: "16px" }}>
+                  <label>
+                    Viewer email
+                    <ViewerEmailAutocomplete
+                      value={grantViewerEmail}
+                      onChange={setGrantViewerEmail}
+                      placeholder="Type viewer email (points to registered viewers)..."
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Select Document
+                    <select
+                      value={grantDocumentId}
+                      onChange={(e) => setGrantDocumentId(e.target.value)}
+                      required
+                    >
+                      <option value="">Choose a document from catalog</option>
+                      {documents.map((doc) => (
+                        <option key={doc.id} value={doc.id}>
+                          {doc.name} [{doc.category || "General"}] — Owner: {doc.owner}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Permission level
+                    <select
+                      value={grantAccessLevel}
+                      onChange={(e) => setGrantAccessLevel(e.target.value)}
+                    >
+                      <option>View only</option>
+                      <option>View + Download</option>
+                    </select>
+                  </label>
+
+                  <div className="od-permission-form-submit" style={{ marginTop: "18px" }}>
+                    <button
+                      type="submit"
+                      className="od-primary-button"
+                      disabled={isSubmittingGrant}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "12px 24px",
+                        background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                        color: "#fff",
+                        borderRadius: "10px",
+                        border: "none",
+                        fontWeight: 600,
+                        cursor: isSubmittingGrant ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      <ShieldCheck size={18} /> {isSubmittingGrant ? "Granting Permission..." : "Grant Document Permission"}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
           )}
 
           {section === "deleted" && (

@@ -164,3 +164,50 @@
 1. **Compromised Account Protocol:** In the Admin Console, immediately click **Revoke User**. This terminates access tokens, flags the account as `REVOKED`, and logs a `DANGER` alert in the audit ledger.
 2. **Accidental Deletion Recovery:** If a file is mistakenly deleted, navigate to **Deleted Documents** in the Owner or Admin dashboard and click **Restore** to bring it back to active circulation.
 3. **Secret Rotation:** Rotate `DB_PASSWORD` and administrative credentials on a scheduled 90-day cadence.
+
+---
+
+## 8. Multi-Cloud Hybrid Deployment Threat Analysis (Vercel + Render + Neon AWS)
+
+TrustVault uses a distributed multi-cloud topology:
+- **Frontend SPA Layer:** Vercel Global Edge Network (`https://frontend-roan-three-7fqlz5ax9a.vercel.app`)
+- **Backend Cryptographic API Layer:** Render Web Service (`https://trustvault-blgr.onrender.com`)
+- **Persistence & Audit Layer:** Neon Serverless PostgreSQL (`ep-gentle-sun-b5gv4iid-pooler.c-7.us-east-2.aws.neon.tech`)
+
+```
+ [ Client Browser ]
+        │
+        ├─── HTTPS (Static Assets) ───> [ Vercel Global Edge CDN ]
+        │                                      │
+        │                                      ▼ (API Edge Proxy Rewrite)
+        └─── HTTPS (REST /api/**) ───────────> [ Render Cloud Web Service ]
+                                                (Spring Boot 3 / Port 10000 / $PORT)
+                                                       │
+                                                       ▼ TLS 1.3 (sslmode=require)
+                                                [ Neon Serverless PostgreSQL ]
+                                                (AWS us-east-2 / Pooler / Audit Ledger)
+```
+
+### 8.1. Threat T-07: Static Edge Fallback & 405 Method Not Allowed
+* **Threat Description:** When frontend code sends mutation requests (`POST /api/auth/send-otp`, `POST /api/documents/upload`) without a configured base URL, the browser sends requests directly to the Vercel static server. Because static edge servers do not accept `POST` requests for static HTML assets (`index.html`), Vercel immediately responds with `405 Method Not Allowed`, blinding client authentication.
+* **Mitigations in TrustVault:**
+  1. **Dual Edge Proxy Rewrite:** Configured `frontend/vercel.json` with an edge rewrite rule (`/api/:path* -> https://trustvault-blgr.onrender.com/api/:path*`). Calls hitting Vercel are reverse-proxied without 405 errors.
+  2. **Safe Client Base URL Resolution:** `api.ts` checks `VITE_API_BASE_URL`, `BACKEND_API_BASE_URL`, and `VITE_BACKEND_URL`, sanitizing trailing slashes with `.replace(/\/+$/, '')` to prevent double slashes (`//api/...`).
+
+### 8.2. Threat T-08: Client-Side Environment Variable Stripping & Exposure
+* **Threat Description:** Vite strips any environment variable that does not begin with `VITE_` during production compilation. If an operator configures `BACKEND_API_BASE_URL` on Vercel, the browser receives an empty string. Conversely, sensitive backend variables (database passwords, mail credentials) risk being leaked if bundled.
+* **Mitigations in TrustVault:**
+  1. **Vite Prefix Whitelisting:** `vite.config.js` configures `envPrefix: ['VITE_', 'BACKEND_']` strictly for public backend URLs.
+  2. **Repository Secret Exclusion:** `.env` and `.env.*` are strictly excluded from git tracking via `.gitignore`. All database passwords and SMTP keys reside exclusively in Render backend environment configurations.
+
+### 8.3. Threat T-09: Cross-Origin Resource Sharing (CORS) & Header Injection
+* **Threat Description:** Cross-origin communication between the Vercel frontend domain and Render backend domain is blocked by modern browser Same-Origin Policy (SOP) unless explicitly permitted.
+* **Mitigations in TrustVault:**
+  1. **Spring Security CORS Filter:** `SecurityConfig.java` enforces origin pattern matching, allows `GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH`, exposes response headers, enables credentials, and caches pre-flight OPTIONS queries for 3,600 seconds (`maxAge(3600L)`).
+
+### 8.4. Threat T-10: Render Dynamic Port Allocation & Cold-Start Latency
+* **Threat Description:** Render Cloud Web Services dynamically assign container ports via the `$PORT` environment variable (e.g. 10000). Spring Boot defaulting to port 8080 causes container healthcheck failure. Additionally, free-tier Render services spin down after inactivity, creating cold-start latency.
+* **Mitigations in TrustVault:**
+  1. **Dynamic Port Binding in Dockerfile:** Production entrypoint executes `java $JAVA_OPTS -Dserver.port=${PORT:-8080} -jar app.jar`.
+  2. **Dedicated Health Endpoint:** Lightweight `/api/health` and `/` endpoints return JSON telemetry without hitting database write locks, enabling fast container boot and keep-alive pinging.
+

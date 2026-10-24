@@ -1,5 +1,6 @@
 package com.trustvault.repository;
 
+import com.trustvault.user.Role;
 import com.trustvault.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -13,4 +14,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmailIgnoreCase(String email);
 
     List<User> findByStatus(String status);
+
+    List<User> findByRole(Role role);
 }

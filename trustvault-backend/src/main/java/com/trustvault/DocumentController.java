@@ -4,6 +4,7 @@ import com.trustvault.repository.AuditLogRepository;
 import com.trustvault.repository.DocumentPermissionRepository;
 import com.trustvault.repository.DocumentRepository;
 import com.trustvault.repository.UserRepository;
+import com.trustvault.user.Role;
 import com.trustvault.user.User;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
@@ -626,7 +627,7 @@ public class DocumentController {
                 map.put("category", doc.getCategory());
                 map.put("type", doc.getFileType());
                 map.put("size", doc.getFileSize());
-                map.put("owner", doc.getOwnerName() != null ? doc.getOwnerName() : doc.getOwnerEmail());
+                map.put("owner", resolveOwnerDisplayName(doc));
                 map.put("ownerEmail", doc.getOwnerEmail());
                 map.put("updated", doc.getUpdatedAt().toString().substring(0, 10));
                 map.put("access", perm.getStatus());
@@ -663,7 +664,7 @@ public class DocumentController {
             map.put("category", d.getCategory());
             map.put("type", d.getFileType());
             map.put("size", d.getFileSize());
-            map.put("owner", d.getOwnerName() != null ? d.getOwnerName() : d.getOwnerEmail());
+            map.put("owner", resolveOwnerDisplayName(d));
             map.put("ownerEmail", d.getOwnerEmail());
             map.put("updated", d.getUpdatedAt().toString().substring(0, 10));
             map.put("fileChecksum", d.getFileChecksum() != null ? d.getFileChecksum() : "");
@@ -734,7 +735,16 @@ public class DocumentController {
         Document doc = documentRepository.findById(dto.documentId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found."));
 
-        if (!doc.getOwnerEmail().equalsIgnoreCase(dto.ownerEmail().trim())) {
+        String callerEmail = dto.ownerEmail() != null ? dto.ownerEmail().trim().toLowerCase() : "";
+        boolean isOwner = doc.getOwnerEmail().equalsIgnoreCase(callerEmail);
+        boolean isAdmin = false;
+
+        Optional<User> callerOpt = userRepository.findByEmailIgnoreCase(callerEmail);
+        if (callerOpt.isPresent() && callerOpt.get().getRole() == Role.ADMIN) {
+            isAdmin = true;
+        }
+
+        if (!isOwner && !isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to grant permissions for this document.");
         }
 
@@ -757,12 +767,16 @@ public class DocumentController {
         permission.setGrantedAt(Instant.now());
         permissionRepository.save(permission);
 
+        String granterName = isAdmin
+                ? "Administrator"
+                : resolveOwnerDisplayName(doc);
+
         auditLogRepository.save(new AuditLog(
                 "PERMISSION_GRANTED",
-                dto.ownerEmail().trim().toLowerCase(),
-                "",
-                "OWNER",
-                "Granted access on " + doc.getName() + " to " + viewerEmail + " (Download: " + dto.canDownload() + ")",
+                callerEmail,
+                callerOpt.map(User::getUserCode).orElse(""),
+                isAdmin ? "ADMIN" : "OWNER",
+                granterName + " granted access on " + doc.getName() + " to " + viewerEmail + " (Download: " + dto.canDownload() + ")",
                 "SUCCESS"
         ));
 
@@ -849,6 +863,53 @@ public class DocumentController {
                 + "================================================================================\n"
                 + "END OF CERTIFIED DOCUMENT - TRUSTVAULT ENTERPRISE SECURITY\n"
                 + "================================================================================\n";
+    }
+
+    /**
+     * Viewers Directory: Returns all active viewer accounts for autocomplete and permission delegation.
+     */
+    @GetMapping("/viewers")
+    public ResponseEntity<List<Map<String, String>>> getAvailableViewers() {
+        List<User> viewers = userRepository.findByRole(Role.VIEWER);
+        List<Map<String, String>> response = new ArrayList<>();
+        for (User u : viewers) {
+            if ("REVOKED".equalsIgnoreCase(u.getStatus())) continue;
+            Map<String, String> m = new LinkedHashMap<>();
+            m.put("email", u.getEmail());
+            m.put("name", (u.getFullName() != null && !u.getFullName().isBlank() && !u.getFullName().toLowerCase().contains("demo"))
+                    ? u.getFullName()
+                    : formatNameFromEmail(u.getEmail()));
+            m.put("userCode", u.getUserCode() != null ? u.getUserCode() : "");
+            m.put("status", u.getStatus() != null ? u.getStatus() : "APPROVED");
+            response.add(m);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    private String resolveOwnerDisplayName(Document doc) {
+        if (doc == null) return "Document Owner";
+        if (doc.getOwnerName() != null && !doc.getOwnerName().isBlank() && !doc.getOwnerName().toLowerCase().contains("demo")) {
+            return doc.getOwnerName();
+        }
+        User owner = userRepository.findByEmailIgnoreCase(doc.getOwnerEmail()).orElse(null);
+        if (owner != null && owner.getFullName() != null && !owner.getFullName().isBlank() && !owner.getFullName().toLowerCase().contains("demo")) {
+            return owner.getFullName();
+        }
+        return formatNameFromEmail(doc.getOwnerEmail());
+    }
+
+    private String formatNameFromEmail(String email) {
+        if (email == null || email.isBlank()) return "Document Owner";
+        String local = email.split("@")[0].replace(".", " ").replace("_", " ").replace("-", " ");
+        String[] parts = local.split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String p : parts) {
+            if (!p.isEmpty()) {
+                sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1).toLowerCase()).append(" ");
+            }
+        }
+        String formatted = sb.toString().trim();
+        return formatted.isEmpty() ? "Document Owner" : formatted;
     }
 
     public record DocumentUploadRequest(String name, String category, String fileType, String fileSize, String email) {}

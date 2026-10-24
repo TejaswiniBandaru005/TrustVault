@@ -37,30 +37,41 @@ public class AdminSeeder {
                     "TV-USR-0001"
             );
 
-            // Owner demo account (owner1@example.com / Owner1@123)
+            // Owner account (owner1@example.com / Owner1@123)
             seedUser(
                     userRepository,
                     passwordEncoder,
                     "owner1@example.com",
                     "Owner1@123",
                     Role.OWNER,
-                    "Demo Document Owner",
+                    "Document Owner",
                     "TV-USR-0002"
             );
 
-            // Viewer demo account (viewer1@example.com / Viewer1@123)
+            // Viewer account (viewer1@example.com / Viewer1@123)
             seedUser(
                     userRepository,
                     passwordEncoder,
                     "viewer1@example.com",
                     "Viewer1@123",
                     Role.VIEWER,
-                    "Demo Viewer",
+                    "Verified Viewer",
                     "TV-USR-0003"
             );
 
             syncIdSequence(jdbcTemplate);
+            sanitizeNames(jdbcTemplate);
         };
+    }
+
+    private void sanitizeNames(JdbcTemplate jdbcTemplate) {
+        try {
+            jdbcTemplate.update("UPDATE documents SET owner_name = 'Document Owner' WHERE LOWER(owner_name) LIKE '%demo%'");
+            jdbcTemplate.update("UPDATE app_users SET full_name = 'Document Owner' WHERE LOWER(full_name) LIKE '%demo%' AND role = 'OWNER'");
+            jdbcTemplate.update("UPDATE app_users SET full_name = 'Verified Viewer' WHERE LOWER(full_name) LIKE '%demo%' AND role = 'VIEWER'");
+        } catch (Exception e) {
+            System.err.println("[TrustVault] Name sanitization notice: " + e.getMessage());
+        }
     }
 
     private void syncIdSequence(JdbcTemplate jdbcTemplate) {
@@ -104,7 +115,7 @@ public class AdminSeeder {
             if (user.getUserCode() == null || user.getUserCode().isBlank()) {
                 user.setUserCode(defaultUserCode);
             }
-            if (user.getFullName() == null || user.getFullName().isBlank()) {
+            if (user.getFullName() == null || user.getFullName().isBlank() || user.getFullName().toLowerCase().contains("demo")) {
                 user.setFullName(fullName);
             }
             userRepository.save(user);

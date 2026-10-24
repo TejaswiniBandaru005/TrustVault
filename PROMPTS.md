@@ -125,6 +125,44 @@ TrustVault is a production-grade Zero-Trust Document Enclave platform built to e
 
 ---
 
+### Iteration 9: Render Backend + Vercel Frontend Integration & 405 Method Not Allowed Fix
+* **User Prompt:**
+  > *"https://trustvault-blgr.onrender.com/ i deployed the springboot app but i am getting this interface, i think it is not communicating with the frontend properly , i set the env variable BACKEND_API_BASE_URL=https://trustvault-blgr.onrender.com/ as well and i have seen in network tab that api calls are being made to the api correctly https://frontend-roan-three-7fqlz5ax9a.vercel.app/api/auth/send-otp Request method POST Status code 405 Method Not Allowed"*
+* **Engineering Solution:**
+  1. **Root Cause Analysis:**
+     - The interface at `https://trustvault-blgr.onrender.com/` was the Spring Boot Enclave splash page from `HealthController.java`, confirming the backend on Render was healthy and connected to Neon PostgreSQL.
+     - In Vite, client-exposed variables require a `VITE_` prefix by default. The variable `BACKEND_API_BASE_URL` was stripped by Vite during build, causing API requests to fall back to relative URLs on Vercel (`https://frontend-roan-three-7fqlz5ax9a.vercel.app/api/...`).
+     - Vercel's SPA catch-all rewrite sent POST requests to `index.html`, which static hosting servers reject with `405 Method Not Allowed`.
+  2. **Vite Prefix Configuration:** Added `envPrefix: ['VITE_', 'BACKEND_']` to `vite.config.js` so Vite exposes both prefixes.
+  3. **Vercel Reverse Proxy:** Added rewrite rule in `frontend/vercel.json` (`/api/:path* -> https://trustvault-blgr.onrender.com/api/:path*`) to seamlessly proxy edge calls.
+  4. **Base URL Sanitization:** In `api.ts`, added automatic trailing slash trimming (`.replace(/\/+$/, '')`) to prevent double-slash malformed URLs.
+  5. **Backend CORS Optimization:** Allowed `GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH`, exposed all headers, and set pre-flight cache to 1 hour (`maxAge(3600L)`).
+
+---
+
+### Iteration 10: Default Credentials Cleanup, Real Owner Resolution, Autocomplete Viewer Delegation & UI Polish
+* **User Prompt:**
+  > *"in my code remove the default credentials of both admin and viewer and when the owner is giving access to the viewer it is displaying that demo owner is givien access instead of showing the proper owner name. also in owner and admin dashboard while giving permission to access the files then Grant Document Permission page should display all the existing emails of viewers and while typing their starting letters it should point to the similar emails"*  
+  > *"change the docker and i also used render website along with the vercel. render to run the backend server, using this info also change the PROMTS.md and THREATS.md if possible u also change the UI into more iteractive and attractive along with some more animations"*
+* **Engineering Solution:**
+  1. **Credentials Cleanup:** Removed default prefilled credentials and placeholders for `admin` and `viewer` in `Login.jsx`. Forms now start clean, retaining demo values only for `owner` if requested.
+  2. **Proper Owner Name Resolution:**
+     - Sanitized `AdminSeeder.java` to seed `"Document Owner"` and `"Verified Viewer"`, eliminating hardcoded "Demo" prefix strings.
+     - Added automatic database sanitization queries via `JdbcTemplate` to upgrade legacy `"Demo Document Owner"` rows in Neon PostgreSQL.
+     - Updated `DocumentController.java` to dynamically resolve the owner's real profile name from `UserRepository` rather than falling back to "Demo Owner".
+     - Updated `/grant-access` to allow both Document Owners and Administrators to grant permissions.
+  3. **Interactive Viewer Email Autocomplete:**
+     - Built `ViewerEmailAutocomplete.jsx` with full keyboard navigation (arrows, enter, escape), matching-prefix text highlighting, and quick-select viewer chips.
+     - Added `GET /api/documents/viewers` endpoint in `DocumentController.java` returning all approved viewers.
+     - Integrated `ViewerEmailAutocomplete` into both **Owner Dashboard** and **Admin Dashboard** under "Grant Document Permission".
+  4. **Cloud-Ready Docker Containerization:**
+     - Updated `Dockerfile` and `docker-compose.yml` with dynamic `$PORT` binding (`-Dserver.port=${PORT:-8080}`) to support Render Web Service container requirements.
+     - Added dedicated `trustvault-backend/Dockerfile` for direct backend deployments.
+  5. **Interactive UI Animations:**
+     - Added smooth dropdown entrance transitions (`dropdownSlideFade`), clearance beacon pulsing (`beaconPulse`), glowing panel hover states, and button micro-interactions in `App.css`.
+
+---
+
 ## 3. Security & Operational Verification Summary
 
 | Check / Build Pipeline | Command | Result |

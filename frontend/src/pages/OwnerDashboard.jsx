@@ -39,6 +39,7 @@ import TrustVaultLogo from "../components/TrustVaultLogo";
 import ThemePalettePicker from "../components/ThemePalettePicker";
 import IntegrityPill from "../components/IntegrityPill";
 import SecurityClearanceBadge from "../components/SecurityClearanceBadge";
+import ViewerEmailAutocomplete from "../components/ViewerEmailAutocomplete";
 
 const navigation = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -529,11 +530,10 @@ export default function OwnerDashboard({
         <form className="od-permission-form" onSubmit={grantPermission}>
           <label>
             Viewer email
-            <input
-              type="email"
-              placeholder="viewer@example.com"
+            <ViewerEmailAutocomplete
               value={viewerEmail}
-              onChange={(event) => setViewerEmail(event.target.value)}
+              onChange={setViewerEmail}
+              placeholder="Type viewer email (points to registered viewers)..."
               required
             />
           </label>
