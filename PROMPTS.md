@@ -144,7 +144,7 @@
   4. Formatted all document ingestion timestamps using `TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a")` and client-side `new Date(d.updatedAt || d.createdAt).toLocaleString()`.
   5. Added real-time search to the Daily Engineering Reports enclave and added Ascending/Descending file sort order controls to Document Monitoring.
   6. Added `@PrePersist` and `@PreUpdate` lifecycle hooks in [`Document.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/Document.java) guaranteeing complete, non-null cryptographic metadata (SHA-256, format, size, clearance).
-* **Commit Link:** [`b5a7e12`](https://github.com/TejaswiniBandaru005/TrustVault/commit/b5a7e12)
+* **Commit Link:** [`ee26e13`](https://github.com/TejaswiniBandaru005/TrustVault/commit/ee26e13)
 
 ---
 
