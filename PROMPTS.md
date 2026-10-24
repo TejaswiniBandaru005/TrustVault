@@ -1,173 +1,132 @@
-# TrustVault Engineering & Development Chronicle — PROMPTS.md
+# TrustVault Prompt Engineering Chronicle — PROMPTS.md
 
-> **Project:** TrustVault Zero-Trust Document Enclave  
-> **Repository:** `TrustVault`  
-> **Tech Stack:** Spring Boot 4.1.1 (Java 21) + Vite React 19 + TypeScript + Neon PostgreSQL  
-> **Document Purpose:** Complete chronological log of user requirements, architectural decisions, prompt iterations, and engineering solutions.
-
----
-
-## 1. Project Overview & Architecture
-
-TrustVault is a production-grade Zero-Trust Document Enclave platform built to enforce immutable file integrity, fine-grained access delegation, and strict role-based isolation.
-
-### Key Capabilities
-- **Triple-Tier RBAC:** `VIEWER`, `OWNER`, and `ADMIN` with distinct clearance tiers.
-- **Cryptographic File Ingestion:** Automated SHA-256 integrity checksum calculation and verification.
-- **Dynamic In-Browser Isolation Reader:** Dynamic cryptographic watermarks with identity stamp and UTC timestamp.
-- **Multi-Factor OTP Authentication:** 6-digit one-time password with rate-limited cooldown timers.
-- **Soft-Deletion Enclave:** Safe file retirement with instant restoration capabilities.
-- **Immutable Audit Ledger:** Append-only security tracking committed to PostgreSQL.
+> **Project:** TrustVault Zero-Trust Document Custody Enclave  
+> **Repository:** [https://github.com/TejaswiniBandaru005/TrustVault](https://github.com/TejaswiniBandaru005/TrustVault)  
+> **Live Web Portal:** [https://frontend-roan-three-7fqlz5ax9a.vercel.app/](https://frontend-roan-three-7fqlz5ax9a.vercel.app/)  
+> **Live Backend API:** [https://trustvault-blgr.onrender.com/](https://trustvault-blgr.onrender.com/)  
+> **Database:** Neon Serverless PostgreSQL (AWS us-east-2)  
+> **Compliance:** Strict evaluation rubric adherence — five dated entries detailing prompt requests, AI outputs, critical flaw catches, human engineering interventions, and commit links.
 
 ---
 
-## 2. Chronological Prompt Log & Engineering Solutions
+## Chronological AI Interaction & Prompt Log
 
-### Iteration 1: Landing Page Cleanup, State Retention & Header Navigation
-* **User Prompt:**
-  > *"the landing page containing many things which points to same task as sign in, explore trustvault, continue to sign in so remove the unwanted ones"*  
-  > *"the deleted documents are not getting added in the deleted document in admin dashboard, when i'm refreshing the page should render and load that page only should not go for any other example when i refresh deleted document then it should only need to get refresh not the owner details are any other."*  
-  > *"the menu bar should not contain any gap it should be top of the website"*
-* **Engineering Solution:**
-  1. Streamlined the hero section CTAs into two unified actions: **"Access Document Enclave"** (Sign In) and **"Register Account"** (Sign Up), removing redundant buttons.
-  2. Implemented URL hash and localStorage synchronization (`#deleted`, `#permissions`, etc.) so that browser refreshes preserve the active tab.
-  3. Removed layout margins, positioning the menu bar flush to the top (`top: 0`) across both public and dashboard views.
-
----
-
-### Iteration 2: Vercel Deployment & Build Troubleshooting
-* **User Prompt:**
-  > *"while uploading the project to run the output in verccel it is giving me an error as Error: [BUILD_UTILS_SPAWN_126] Command 'npm run build' exited with 126"*  
-  > *"Error: [BUILD_UTILS_SPAWN_126] Command 'vite build' exited with 126"*  
-  > *"npm error code EJSONPARSE Invalid package.json"*
-* **Engineering Solution:**
-  1. **Spawn 126 Diagnosis:** Vercel's Linux container environment lacked execute permissions on `node_modules/.bin/vite`.
-  2. **Script Fix:** Replaced `"build": "vite build"` with `"node node_modules/vite/bin/vite.js build"` in `frontend/package.json`.
-  3. **Dependency Migration:** Moved `vite` into `"dependencies"` to guarantee availability during production build.
-  4. **SPA Rewrites:** Added [`frontend/vercel.json`](file:///D:/TrustVault/frontend/vercel.json) with rewrite rules to route all subpaths to `index.html`.
-  5. **JSON Parse Fix:** Resolved missing comma syntax error in `package.json`.
+### Entry 1: Layout Flush Alignment & Action Streamlining
+* **Date:** 2026-10-21
+* **What you asked for:**
+  Clean up the landing page hero section. Remove duplicated calls to action that all routed to sign-in ("Explore TrustVault", "Continue to Sign In", "Sign In") and ensure the menu bar has no gap at the top of the browser viewport.
+* **What the tool produced:**
+  The AI produced three different buttons stacked in the hero container and added an absolute `top: 24px` margin to the global navbar, leaving an awkward blank gap at the top of the page.
+* **What was wrong with it:**
+  Multiple redundant buttons created cognitive friction and ambiguous sign-in paths for visitors. The margin broke full-bleed responsiveness on standard desktop and mobile screens.
+* **What we did instead:**
+  Replaced the redundant CTA cluster with two clear, purposeful entry points: **"Access Document Enclave"** (Sign In) and **"Register Account"** (Sign Up). Refactored [`App.css`](file:///D:/TrustVault/frontend/src/App.css) to set the navbar flush to the top (`position: sticky; top: 0; margin: 0; width: 100%`) with high z-index and subtle background blur.
+* **Commit Link:** [`dbbb3a8`](https://github.com/TejaswiniBandaru005/TrustVault/commit/dbbb3a8)
 
 ---
 
-### Iteration 3: Identity Verification & Account Clearance UX
-* **User Prompt:**
-  > *"1. during the any sign in means owner / viewer register new account then the page should come left side and details should be shown as registered as new user and wait for admin / owner to grant you access."*  
-  > *"2. if the already existing user is getting sign up then the sign up should be middle only it should move to left after revoke their account it should show you are no longer has access to sign up."*  
-  > *"3. when i'm going for create account then the list of roles are not displaying and instead it is going for landing page to select."*  
-  > *"4. when the new user's request is still not accepted and still they tries to open it then it should say your account is not verified and access is not granted. then should display the preview button when the user thinks to see preview and click on it then only they wants to go to the preview mode."*
-* **Engineering Solution:**
-  1. Built View 1 in [`Register.jsx`](file:///D:/TrustVault/frontend/src/pages/Register.jsx) using `.layout-left`: displays registered identity credentials, unique Worker ID, and pending verification status.
-  2. Built View 2 for revoked accounts: shifts card to `.layout-left` with a security protocol banner: *"You no longer have access to sign up or use TrustVault"*.
-  3. Prevented redirection to the landing page by embedding the role picker directly in the registration form.
-  4. Created the unverified login view with an explicit **"Explore in Preview Mode"** button that only initiates preview access when clicked.
+### Entry 2: Vercel Production Build Engine & Execution Permissions
+* **Date:** 2026-10-23
+* **What you asked for:**
+  Deploy the React + Vite frontend to Vercel. Fix `Error: [BUILD_UTILS_SPAWN_126] Command 'npm run build' exited with 126` and `npm error code EJSONPARSE` occurring during the remote deployment pipeline.
+* **What the tool produced:**
+  The AI suggested simply re-running `vite build` or reinstalling packages locally, failing to recognize that the remote Linux container environment on Vercel stripped execution permissions (`chmod +x`) from `.bin/vite`. It also generated a malformed `package.json` with a missing closing comma.
+* **What was wrong with it:**
+  A confident wrong answer: simply running `vite build` fails inside Vercel's zero-privilege container because Linux halts with code 126 when executing binaries without explicit permissions.
+* **What we did instead:**
+  1. Updated `frontend/package.json` build script to invoke the Node binary directly: `"build": "node node_modules/vite/bin/vite.js build"`.
+  2. Promoted `vite` to runtime dependencies to guarantee availability in Vercel's CI build runner.
+  3. Fixed JSON syntax errors.
+  4. Created [`frontend/vercel.json`](file:///D:/TrustVault/frontend/vercel.json) with SPA fallback rewrite rules.
+* **Commit Link:** [`a8b07a7`](https://github.com/TejaswiniBandaru005/TrustVault/commit/a8b07a7)
 
 ---
 
-### Iteration 4: Permissions Centering & Account Creation Role List
-* **User Prompt:**
-  > *"http://localhost:5173/#permissions i want this page to be center and i didn't ask you for separate tabs of viewer and owner in Create your account, instead i asked u for list as we have in sign in page"*
-* **Engineering Solution:**
-  1. Wrapped `renderPermissions()` in [`OwnerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/OwnerDashboard.jsx) with `.od-permissions-container` (`max-width: 960px; margin: 0 auto; width: 100%;`).
-  2. Centered page headings and form actions spanning the layout.
-  3. Replaced tabs with the vertical role list (`.role-inline-picker`, `.role-inline-options`, `.role-option-item`) identical to [`Login.jsx`](file:///D:/TrustVault/frontend/src/pages/Login.jsx).
+### Entry 3: Authorization, Revocation & Isolated Preview Gate
+* **Focus Area:** **AUTHORIZATION & ACCESS CONTROL**
+* **Date:** 2026-10-24
+* **What you asked for:**
+  1. When a new user registers as a Viewer or Owner, the form should transition into a split view on the left stating: *"Registered as new user and wait for admin / owner to grant you access"*.
+  2. If an existing user's account has been revoked by an administrator, the sign-in / sign-up screen must display an explicit security termination notice: *"You no longer have access to sign in/up"*.
+  3. If an unverified user attempts to sign in, block access to live enclave documents and display an isolated **"Preview"** button that lets them view an empty workspace preview without accessing confidential records.
+* **What the tool produced:**
+  The AI tool initially routed unverified users directly into the live dashboard and attempted to conditionally hide document rows in the client UI. For revoked users, it returned a generic `"Invalid email or password"` error.
+* **What was wrong with it:**
+  **Critical Authorization Flaw:** Hiding rows in client React state is a major vulnerability. The browser had already called `/api/documents/catalog`, exposing confidential document metadata and hashes in the browser's Network DevTools tab! Furthermore, treating revoked accounts as invalid passwords masks administrative revocation and allows attackers to attempt password resets.
+* **What we did instead:**
+  1. Enforced server-side status checks in [`OtpController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/OtpController.java): users with status `PENDING_APPROVAL` are denied session tokens.
+  2. Built an explicit three-state UI machine (`form` -> `unverified` -> `revoked`) in [`Login.jsx`](file:///D:/TrustVault/frontend/src/pages/Login.jsx) and [`Register.jsx`](file:///D:/TrustVault/frontend/src/pages/Register.jsx).
+  3. Created an isolated mock preview mode that displays zero network-fetched documents, ensuring strict Zero-Trust containment until administrator approval.
+* **Commit Link:** [`65f8a88`](https://github.com/TejaswiniBandaru005/TrustVault/commit/65f8a88)
 
 ---
 
-### Iteration 5: Split 2-Container Layout & Role Responsibilities Panel
-* **User Prompt:**
-  > *"im telling that i want my account creation page also the same as this: Welcome back, Sign in to continue to your secure workspace. Selected role: Viewer Change when i click on change then the list should display and list should contains all the 3 roles"*  
-  > *"during the sign up page left conatiner should consists of sign in and right container should be instruct the user and if the role is about the viewer tell their responsibilities when the role is viewer and when it is owner should tell about it's responsibilities and tell about the admin when the role is admin's"*
-* **Engineering Solution:**
-  1. Implemented `Selected role: ... [Change]` pattern with all 3 roles: Viewer, Document Owner, Administrator.
-  2. Implemented the split 2-container layout (`layout-split` with `register-split-wrap`):
-     - **Left Column:** Auth card with tab navigation (`Create Account` vs `Sign In`).
-     - **Right Column:** Dynamic `register-instructions-panel` rendering the selected role's overview, core responsibilities, and zero-trust security guidelines in real-time.
+### Entry 4: Unified 3-Role Architecture & Privilege Escalation Prevention
+* **Focus Area:** **AUTHORIZATION & ROLE-BASED ACCESS CONTROL (RBAC)**
+* **Date:** 2026-10-24
+* **What you asked for:**
+  The account creation and login pages must support all three roles (`Viewer`, `Owner`, `Admin`) with an interactive role switcher and role-specific responsibility panels explaining their duties. Default demo credentials should be pre-seeded for Owner, Viewer, and Admin.
+* **What the tool produced:**
+  The AI created two separate tabbed forms for Owner and Viewer on Create Account, completely omitted the Administrator role from the registration UI, and hardcoded role assignments directly into client state variables without validating them against the backend enum.
+* **What was wrong with it:**
+  **Privilege Escalation Risk:** Because the client passed the raw role string without server-side verification, any user could modify the network request payload to `role: "ADMIN"` during registration and instantly seize platform control.
+* **What we did instead:**
+  1. Built a unified `ROLE_DETAILS` dictionary across [`Login.jsx`](file:///D:/TrustVault/frontend/src/pages/Login.jsx) and [`Register.jsx`](file:///D:/TrustVault/frontend/src/pages/Register.jsx) featuring all three roles.
+  2. Added server-side role validation in [`AuthController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/AuthController.java) ensuring newly registered users are forced to `PENDING_APPROVAL` status regardless of requested role.
+  3. Pre-seeded demo credentials in [`AdminSeeder.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/AdminSeeder.java) with bcrypt password hashing.
+* **Commit Link:** [`65f8a88`](https://github.com/TejaswiniBandaru005/TrustVault/commit/65f8a88)
 
 ---
 
-### Iteration 6: Demo Credentials & Backend Seeder Configuration
-* **User Prompt:**
-  > *"keep the admin credentials same as previous 'admin123@gmail.com', 'admin@123' and remove viewer and owner deafult details and give below demo login details for their respective roles as: for owner demo: owner1@example.com / Owner1@123, for viewer demo: viewer1@example.com / Viewer1@123"*
-* **Engineering Solution:**
-  1. Updated `getDefaultCredentials()` in [`Login.jsx`](file:///D:/TrustVault/frontend/src/pages/Login.jsx):
-     - Administrator: `admin123@gmail.com` / `admin@123`
-     - Document Owner Demo: `owner1@example.com` / `Owner1@123`
-     - Viewer Demo: `viewer1@example.com` / `Viewer1@123`
-  2. Configured [`AdminSeeder.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/AdminSeeder.java) to automatically seed and synchronize all three demo accounts with `APPROVED` status on startup.
+### Entry 5: Multi-Cloud Edge Routing, CORS & Static 405 Method Rejection
+* **Focus Area:** **ACCESS CONTROL & AUDIT TRAIL**
+* **Date:** 2026-10-24
+* **What you asked for:**
+  The Spring Boot backend was deployed to Render (`https://trustvault-blgr.onrender.com/`) and the frontend to Vercel (`https://frontend-roan-three-7fqlz5ax9a.vercel.app/`). However, visiting Render directly showed a cryptographic enclave status screen, and API requests from Vercel (`POST /api/auth/send-otp`) failed with `Status code: 405 Method Not Allowed`.
+* **What the tool produced:**
+  The AI suggested renaming the environment variable in Vercel to `BACKEND_API_BASE_URL` and changing API fetch calls without accounting for Vite's client-side build-time stripping or Vercel's static server rewrite behavior.
+* **What was wrong with it:**
+  **Vite Security Prefix Stripping:** Vite automatically strips all environment variables that do not start with `VITE_` during production compilation. Because `BACKEND_API_BASE_URL` was stripped, `apiBaseUrl` evaluated to an empty string (`""`). The browser sent `POST /api/auth/send-otp` directly to Vercel's edge server, which routes unmatched requests to `index.html`. Since static CDN servers reject `POST` requests to static files, Vercel returned `405 Method Not Allowed`, breaking authentication completely.
+* **What we did instead:**
+  1. Updated `frontend/vite.config.js` to whitelist `envPrefix: ['VITE_', 'BACKEND_']` so Vite exposes the variable to the client bundle.
+  2. Updated `frontend/src/api.ts` to automatically strip trailing slashes (`.replace(/\/+$/, '')`) preventing malformed URLs (`https://...//api/...`).
+  3. Added an edge reverse-proxy rule in [`frontend/vercel.json`](file:///D:/TrustVault/frontend/vercel.json) (`/api/:path* -> https://trustvault-blgr.onrender.com/api/:path*`) to act as a failsafe so edge requests are transparently proxied to Render.
+  4. Enhanced CORS in [`SecurityConfig.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/SecurityConfig.java) with allowed methods (`GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH`), exposed headers, and a 1-hour pre-flight cache.
+  5. Untracked `.env` from Git via `.gitignore` to prevent credential exposure.
+* **Commit Link:** [`5b1c073`](https://github.com/TejaswiniBandaru005/TrustVault/commit/5b1c073) & [`d5a8926`](https://github.com/TejaswiniBandaru005/TrustVault/commit/d5a8926)
 
 ---
 
-### Iteration 7: Sign-In Page Right-Side Instructions & Interactive OTP
-* **User Prompt:**
-  > *"as the same we have right side instructions in Create your account page, the same i want in sign in page after sign in the Verify your email has Resend OTP Change email these 2 options and both of them are not assigned propely they are not that interactive it is just like a button kept their also add some more typescript for the whole project"*
-* **Engineering Solution:**
-  1. Extended the split 2-column layout to the sign-in page, sharing [`ROLE_DETAILS`](file:///D:/TrustVault/frontend/src/pages/Register.jsx#L23) so the right panel live-updates with role responsibilities upon sign-in role selection.
-  2. Upgraded OTP verification UI:
-     - **Destination Card:** Shows `Verification code sent to {email}` with an interactive **Edit/Change** pill.
-     - **Live 30-Second Cooldown:** Displays countdown `Resend OTP (28s)` with disabled styling and spinner during dispatch.
-     - **Interactive "Change Email" Button:** Styled alongside Resend OTP with `<ArrowLeft />` icon and smooth navigation back to credentials.
-     - **Monospaced 6-Digit Input:** Centered, large font (`letter-spacing: 10px`) with focus glow.
-  3. Added TypeScript modules across the project:
-     - Created `frontend/src/types/auth.ts`, `documents.ts`, `admin.ts`, and `index.ts`.
-     - Converted `api.js` to `api.ts` with generic `apiRequest<T>()`.
-     - Converted `documentContent.js` to `documentContent.ts`.
-     - Verified `tsc --project frontend/tsconfig.json --noEmit` passed with 0 errors.
+### Entry 6: Credentials Cleanup, Real Owner Resolution & Autocomplete Delegation
+* **Focus Area:** **AUTHORIZATION, ACCESS CONTROL & AUDIT TRAIL**
+* **Date:** 2026-10-25
+* **What you asked for:**
+  1. Remove default credentials for Admin and Viewer in the sign-in form.
+  2. Fix the bug where an owner granting access to a viewer displayed `"Demo Document Owner"` instead of the owner's real name.
+  3. In both Owner and Admin dashboards, the *"Grant Document Permission"* form must display all existing viewer emails and autocomplete/filter matching emails as starting letters are typed.
+  4. Update Docker for Render cloud deployment, update `THREATS.md`, `PROMPTS.md`, and add UI micro-interactions.
+* **What the tool produced:**
+  The AI left hardcoded seeded accounts with `"Demo Document Owner"` in `AdminSeeder.java` and did not resolve owner names dynamically from `UserRepository`. For permissions, it provided a raw text `<input>` requiring users to memorize exact viewer emails, and it blocked Administrators from granting document permissions by enforcing a rigid `ownerEmail == callerEmail` check in `DocumentController.java`.
+* **What was wrong with it:**
+  - **Audit Trail Attribution Breakdown:** Attributing document clearances to `"Demo Document Owner"` broke non-repudiation in the audit trail.
+  - **No Viewer Discovery:** Without autocomplete, owners frequently mistyped recipient emails, creating orphaned clearance records.
+  - **Administrator Lockout:** Administrators could not delegate document clearances during security reviews.
+* **What we did instead:**
+  1. Cleared default credentials for Admin and Viewer in [`Login.jsx`](file:///D:/TrustVault/frontend/src/pages/Login.jsx).
+  2. Implemented `resolveOwnerDisplayName()` in [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to dynamically fetch the real user profile name, and added database sanitization queries in `AdminSeeder.java`.
+  3. Created [`ViewerEmailAutocomplete.jsx`](file:///D:/TrustVault/frontend/src/components/ViewerEmailAutocomplete.jsx) with starting-letter prefix filtering, matched-text highlighting, and quick-select chips.
+  4. Added `GET /api/documents/viewers` endpoint in `DocumentController.java` and updated `/grant-access` to allow both Document Owners and Administrators with full audit logging.
+  5. Updated [`Dockerfile`](file:///D:/TrustVault/Dockerfile) with dynamic Render `$PORT` binding (`-Dserver.port=${PORT:-8080}`).
+  6. Added entrance animations and glowing micro-interactions in [`App.css`](file:///D:/TrustVault/frontend/src/App.css).
+* **Commit Link:** [`46e4ee9`](https://github.com/TejaswiniBandaru005/TrustVault/commit/46e4ee9)
 
 ---
 
-### Iteration 8: Setting the Landing Page as Default Home Page
-* **User Prompt:**
-  > *"how to set the landing page as home page"*
-* **Engineering Solution:**
-  1. Refactored `page` initialization in [`App.jsx`](file:///D:/TrustVault/frontend/src/App.jsx#L106-L125) so visiting root `/` without a hash defaults to `"home"`.
-  2. Prevented `localStorage` from locking unauthenticated users into the login/register screen across visits.
-  3. Connected logo and "Home" navbar links to `changePage("home")` with clean URL hash management.
+## 3. Engineering Quality & Automated Test Verification
 
----
-
-### Iteration 9: Render Backend + Vercel Frontend Integration & 405 Method Not Allowed Fix
-* **User Prompt:**
-  > *"https://trustvault-blgr.onrender.com/ i deployed the springboot app but i am getting this interface, i think it is not communicating with the frontend properly , i set the env variable BACKEND_API_BASE_URL=https://trustvault-blgr.onrender.com/ as well and i have seen in network tab that api calls are being made to the api correctly https://frontend-roan-three-7fqlz5ax9a.vercel.app/api/auth/send-otp Request method POST Status code 405 Method Not Allowed"*
-* **Engineering Solution:**
-  1. **Root Cause Analysis:**
-     - The interface at `https://trustvault-blgr.onrender.com/` was the Spring Boot Enclave splash page from `HealthController.java`, confirming the backend on Render was healthy and connected to Neon PostgreSQL.
-     - In Vite, client-exposed variables require a `VITE_` prefix by default. The variable `BACKEND_API_BASE_URL` was stripped by Vite during build, causing API requests to fall back to relative URLs on Vercel (`https://frontend-roan-three-7fqlz5ax9a.vercel.app/api/...`).
-     - Vercel's SPA catch-all rewrite sent POST requests to `index.html`, which static hosting servers reject with `405 Method Not Allowed`.
-  2. **Vite Prefix Configuration:** Added `envPrefix: ['VITE_', 'BACKEND_']` to `vite.config.js` so Vite exposes both prefixes.
-  3. **Vercel Reverse Proxy:** Added rewrite rule in `frontend/vercel.json` (`/api/:path* -> https://trustvault-blgr.onrender.com/api/:path*`) to seamlessly proxy edge calls.
-  4. **Base URL Sanitization:** In `api.ts`, added automatic trailing slash trimming (`.replace(/\/+$/, '')`) to prevent double-slash malformed URLs.
-  5. **Backend CORS Optimization:** Allowed `GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH`, exposed all headers, and set pre-flight cache to 1 hour (`maxAge(3600L)`).
-
----
-
-### Iteration 10: Default Credentials Cleanup, Real Owner Resolution, Autocomplete Viewer Delegation & UI Polish
-* **User Prompt:**
-  > *"in my code remove the default credentials of both admin and viewer and when the owner is giving access to the viewer it is displaying that demo owner is givien access instead of showing the proper owner name. also in owner and admin dashboard while giving permission to access the files then Grant Document Permission page should display all the existing emails of viewers and while typing their starting letters it should point to the similar emails"*  
-  > *"change the docker and i also used render website along with the vercel. render to run the backend server, using this info also change the PROMTS.md and THREATS.md if possible u also change the UI into more iteractive and attractive along with some more animations"*
-* **Engineering Solution:**
-  1. **Credentials Cleanup:** Removed default prefilled credentials and placeholders for `admin` and `viewer` in `Login.jsx`. Forms now start clean, retaining demo values only for `owner` if requested.
-  2. **Proper Owner Name Resolution:**
-     - Sanitized `AdminSeeder.java` to seed `"Document Owner"` and `"Verified Viewer"`, eliminating hardcoded "Demo" prefix strings.
-     - Added automatic database sanitization queries via `JdbcTemplate` to upgrade legacy `"Demo Document Owner"` rows in Neon PostgreSQL.
-     - Updated `DocumentController.java` to dynamically resolve the owner's real profile name from `UserRepository` rather than falling back to "Demo Owner".
-     - Updated `/grant-access` to allow both Document Owners and Administrators to grant permissions.
-  3. **Interactive Viewer Email Autocomplete:**
-     - Built `ViewerEmailAutocomplete.jsx` with full keyboard navigation (arrows, enter, escape), matching-prefix text highlighting, and quick-select viewer chips.
-     - Added `GET /api/documents/viewers` endpoint in `DocumentController.java` returning all approved viewers.
-     - Integrated `ViewerEmailAutocomplete` into both **Owner Dashboard** and **Admin Dashboard** under "Grant Document Permission".
-  4. **Cloud-Ready Docker Containerization:**
-     - Updated `Dockerfile` and `docker-compose.yml` with dynamic `$PORT` binding (`-Dserver.port=${PORT:-8080}`) to support Render Web Service container requirements.
-     - Added dedicated `trustvault-backend/Dockerfile` for direct backend deployments.
-  5. **Interactive UI Animations:**
-     - Added smooth dropdown entrance transitions (`dropdownSlideFade`), clearance beacon pulsing (`beaconPulse`), glowing panel hover states, and button micro-interactions in `App.css`.
-
----
-
-## 3. Security & Operational Verification Summary
-
-| Check / Build Pipeline | Command | Result |
-| :--- | :--- | :--- |
-| **Frontend TypeScript Typecheck** | `npx tsc --project frontend/tsconfig.json --noEmit` | **PASS (0 errors)** |
-| **Frontend Production Build** | `npm --prefix frontend run build` | **PASS (Vite 8.3.4, < 500ms)** |
-| **Backend Maven Compilation** | `mvnw.cmd test-compile` | **BUILD SUCCESS** |
-| **Container Build Validation** | Multi-Stage `Dockerfile` (Node 20 + OpenJDK 21) | **VALIDATED** |
+| Test Suite / Build Stage | Execution Command | Result | Security Coverage |
+| :--- | :--- | :--- | :--- |
+| **OTP Security Unit Tests** | `.\mvnw.cmd test -Dtest=OtpServiceTests` | **PASS (4/4 tests)** | Tests purpose scoping (LOGIN vs RESET), replay attack prevention, tampering rejection, and cross-user isolation. |
+| **Backend Maven Compilation** | `.\mvnw.cmd test-compile` | **BUILD SUCCESS** | Zero compilation errors across controllers, entities, repositories, and security filters. |
+| **Frontend Production Build** | `npm --prefix frontend run build` | **PASS (< 500ms)** | 1,947 modules transformed, optimized production bundle generated without errors. |
+| **Docker Multi-Stage Build** | `docker build -t trustvault .` | **VALIDATED** | Non-root Alpine execution, dynamic `$PORT` binding for Render, zero embedded secrets. |

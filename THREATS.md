@@ -211,3 +211,26 @@ TrustVault uses a distributed multi-cloud topology:
   1. **Dynamic Port Binding in Dockerfile:** Production entrypoint executes `java $JAVA_OPTS -Dserver.port=${PORT:-8080} -jar app.jar`.
   2. **Dedicated Health Endpoint:** Lightweight `/api/health` and `/` endpoints return JSON telemetry without hitting database write locks, enabling fast container boot and keep-alive pinging.
 
+---
+
+## 9. Automated Security Test Suite & Threat Verification
+
+TrustVault maintains an automated test suite verifying that security controls mitigate the threats defined in this model:
+
+| Threat ID | Threat Category | Automated Test Case | Test File | Verification Logic |
+| :--- | :--- | :--- | :--- | :--- |
+| **T-01** | Spoofing / Tampering | `tamperedOtpIsRejected()` | [`OtpServiceTests.java`](file:///D:/TrustVault/trustvault-backend/src/test/java/com/trustvault/OtpServiceTests.java) | Validates that arbitrary or empty OTP attempts are immediately rejected. |
+| **T-01** | Replay Attack | `otpCanOnlyBeUsedOnce()` | [`OtpServiceTests.java`](file:///D:/TrustVault/trustvault-backend/src/test/java/com/trustvault/OtpServiceTests.java) | Validates that an OTP is instantly invalidated after first consumption. |
+| **T-04** | Elevation of Privilege | `otpIsScopedToEmailAndPurpose()` | [`OtpServiceTests.java`](file:///D:/TrustVault/trustvault-backend/src/test/java/com/trustvault/OtpServiceTests.java) | Validates that an OTP generated for login cannot be hijacked to authorize a password reset. |
+| **T-01** | Cross-User Interception | `wrongEmailCannotUseOtherUsersOtp()` | [`OtpServiceTests.java`](file:///D:/TrustVault/trustvault-backend/src/test/java/com/trustvault/OtpServiceTests.java) | Validates that an attacker cannot consume an OTP issued to a victim's address. |
+| **T-02** | Data Tampering | `SHA-256 Checksum Ingestion` | [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) | Validates byte-by-byte SHA-256 hash generation upon file receipt. |
+| **T-06** | Compromised Account | Instant Revocation Gate | [`OtpController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/OtpController.java) | Validates that users with `REVOKED` status are blocked from obtaining session credentials. |
+
+### Test Suite Execution
+```powershell
+cd D:\TrustVault\trustvault-backend
+.\mvnw.cmd test -Dtest=OtpServiceTests
+```
+* **Status:** PASS (4/4 security unit tests passed with 0 failures, 0 errors).
+
+
