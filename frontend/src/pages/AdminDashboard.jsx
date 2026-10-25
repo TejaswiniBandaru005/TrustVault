@@ -1,5 +1,5 @@
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { apiRequest } from "../api";
 import {
   ShieldCheck,
@@ -106,6 +106,8 @@ function AdminDashboard({
   const [users, setUsers] = useState(starterUsers);
   const [requests, setRequests] = useState(starterRequests);
   const [documentRequests, setDocumentRequests] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationRef = useRef(null);
   const [documents, setDocuments] = useState(starterDocuments);
   const [deletedDocuments, setDeletedDocuments] = useState([]);
   const [inspectedOwnerHistory, setInspectedOwnerHistory] = useState(null);
@@ -338,8 +340,43 @@ function AdminDashboard({
 
   useEffect(() => {
     fetchAllData();
-    const interval = setInterval(fetchAllData, 3500);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchAllData, 3000);
+
+    let bc;
+    try {
+      bc = new BroadcastChannel("trustvault_enclave_events");
+      bc.onmessage = (event) => {
+        if (event?.data?.type === "DOCUMENT_REQUEST_SUBMITTED") {
+          fetchAllData();
+          addNotice(`🔔 Real-Time Alert: ${event.data.viewerEmail} requested access to "${event.data.documentName}"!`);
+        }
+      };
+    } catch {}
+
+    const handleStorage = (e) => {
+      if (e.key === "trustvault_last_request_event" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          fetchAllData();
+          addNotice(`🔔 Real-Time Alert: ${parsed.viewerEmail} requested access to "${parsed.documentName}"!`);
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    const handleClickOutside = (e) => {
+      if (notificationRef.current && !notificationRef.current.contains(e.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      clearInterval(interval);
+      try { bc?.close(); } catch {}
+      window.removeEventListener("storage", handleStorage);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const approveRequest = async (request) => {
@@ -747,6 +784,259 @@ function AdminDashboard({
               <span className="clearance-beacon-dot" style={{ backgroundColor: "currentColor" }} />
               ADMIN
             </span>
+
+            {/* Real-time Notification Bell */}
+            <div style={{ position: "relative" }} ref={notificationRef}>
+              <button
+                type="button"
+                className="ad-icon-btn"
+                onClick={() => setNotificationsOpen((prev) => !prev)}
+                title="Viewer Document Access & Registration Notifications"
+                aria-label="Notifications"
+                style={{ position: "relative" }}
+              >
+                <Bell size={18} />
+                {(documentRequests.length + requests.length) > 0 && (
+                  <span style={{
+                    position: "absolute",
+                    top: "-4px",
+                    right: "-4px",
+                    background: "#ef4444",
+                    color: "#ffffff",
+                    borderRadius: "10px",
+                    fontSize: "10px",
+                    fontWeight: 800,
+                    minWidth: "18px",
+                    height: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0 4px",
+                    border: "2px solid var(--panel, #ffffff)",
+                    boxShadow: "0 2px 6px rgba(239, 68, 68, 0.4)",
+                  }}>
+                    {documentRequests.length + requests.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Popover Dropdown */}
+              {notificationsOpen && (
+                <div style={{
+                  position: "absolute",
+                  top: "calc(100% + 10px)",
+                  right: 0,
+                  width: "370px",
+                  maxWidth: "90vw",
+                  backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+                  border: "1px solid var(--border)",
+                  borderRadius: "14px",
+                  boxShadow: "0 14px 38px rgba(0,0,0,0.22)",
+                  zIndex: 1000,
+                  overflow: "hidden",
+                }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px",
+                    borderBottom: "1px solid var(--border)",
+                    backgroundColor: theme === "dark" ? "#1e293b" : "#f8fafc",
+                  }}>
+                    <strong style={{ fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Bell size={15} style={{ color: "var(--primary)" }} /> Notifications & Alerts
+                    </strong>
+                    <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "10px", background: (documentRequests.length + requests.length) > 0 ? "var(--primary)" : "var(--border)", color: "#fff" }}>
+                      {documentRequests.length + requests.length} Pending
+                    </span>
+                  </div>
+
+                  <div style={{ maxHeight: "380px", overflowY: "auto", padding: "10px" }}>
+                    {documentRequests.length === 0 && requests.length === 0 ? (
+                      <div style={{ padding: "30px 16px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
+                        <CheckCircle2 size={32} style={{ margin: "0 auto 8px", color: "#10b981", display: "block" }} />
+                        <strong>All requests handled</strong>
+                        <p style={{ margin: "4px 0 0", fontSize: "12px" }}>No pending document access or account requests.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {documentRequests.map((req) => (
+                          <div
+                            key={req.id || req.permissionId}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: "10px",
+                              backgroundColor: theme === "dark" ? "rgba(59, 130, 246, 0.08)" : "rgba(59, 130, 246, 0.05)",
+                              border: "1px solid rgba(59, 130, 246, 0.25)",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                              <span style={{ color: "var(--primary)", marginTop: "2px" }}><FileText size={16} /></span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {req.documentName}
+                                </div>
+                                <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>
+                                  Viewer <strong style={{ color: "var(--text)" }}>{req.viewerName || req.viewerEmail}</strong> requested access
+                                </div>
+                                <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
+                                  Requested: {formatFullTimestamp(req.requestedAt)}
+                                </div>
+                                <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+                                  <button
+                                    onClick={() => {
+                                      approveDocumentAccess(req, false);
+                                      setNotificationsOpen(false);
+                                    }}
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      border: "none",
+                                      background: "#10b981",
+                                      color: "#fff",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Approve View
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      approveDocumentAccess(req, true);
+                                      setNotificationsOpen(false);
+                                    }}
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      border: "none",
+                                      background: "var(--primary)",
+                                      color: "#fff",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    View + Download
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      rejectDocumentAccess(req);
+                                      setNotificationsOpen(false);
+                                    }}
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      border: "1px solid var(--border)",
+                                      background: "transparent",
+                                      color: "var(--danger, #ef4444)",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {requests.map((accReq) => (
+                          <div
+                            key={accReq.id}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: "10px",
+                              backgroundColor: theme === "dark" ? "rgba(245, 158, 11, 0.08)" : "rgba(245, 158, 11, 0.05)",
+                              border: "1px solid rgba(245, 158, 11, 0.25)",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                              <span style={{ color: "#f59e0b", marginTop: "2px" }}><UserCheck size={16} /></span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>
+                                  {accReq.name} ({accReq.role})
+                                </div>
+                                <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>
+                                  New registration awaiting verification ({accReq.email})
+                                </div>
+                                <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+                                  <button
+                                    onClick={() => {
+                                      approveRequest(accReq);
+                                      setNotificationsOpen(false);
+                                    }}
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      border: "none",
+                                      background: "#10b981",
+                                      color: "#fff",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Approve Account
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      rejectRequest(accReq);
+                                      setNotificationsOpen(false);
+                                    }}
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      border: "1px solid var(--border)",
+                                      background: "transparent",
+                                      color: "var(--danger, #ef4444)",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+
+                  <div style={{
+                    padding: "8px 12px",
+                    borderTop: "1px solid var(--border)",
+                    backgroundColor: theme === "dark" ? "#1e293b" : "#f8fafc",
+                    textAlign: "center",
+                  }}>
+                    <button
+                      onClick={() => {
+                        setSection("requests");
+                        setNotificationsOpen(false);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--primary)",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      View All in Requests Hub →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {onSelectPalette && (
               <ThemePalettePicker

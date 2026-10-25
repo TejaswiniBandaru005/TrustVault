@@ -189,6 +189,28 @@ export default function ViewerDashboard({
 
       setRequestedIds((prev) => [...prev, document.id]);
       showNotice(`Access request sent to ${document.owner} for "${document.name}".`);
+
+      // Real-time notification broadcast to Admin and Owner sessions
+      try {
+        const bc = new BroadcastChannel("trustvault_enclave_events");
+        bc.postMessage({
+          type: "DOCUMENT_REQUEST_SUBMITTED",
+          documentId: document.id,
+          documentName: document.name,
+          viewerEmail: effectiveEmail,
+          viewerName: effectiveName,
+        });
+        bc.close();
+      } catch {}
+      try {
+        localStorage.setItem("trustvault_last_request_event", JSON.stringify({
+          time: Date.now(),
+          documentId: document.id,
+          documentName: document.name,
+          viewerEmail: effectiveEmail,
+        }));
+      } catch {}
+
       await fetchViewerData();
     } catch (err) {
       showNotice("Request failed: " + err.message);
