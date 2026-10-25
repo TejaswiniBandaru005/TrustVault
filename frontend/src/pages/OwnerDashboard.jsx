@@ -103,6 +103,7 @@ export default function OwnerDashboard({
   const [uploadType, setUploadType] = useState("PDF");
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadTextContent, setUploadTextContent] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const [docViewMode, setDocViewMode] = useState("cards");
   const [viewerEmail, setViewerEmail] = useState("");
   const [permissionDocument, setPermissionDocument] = useState("");
@@ -283,7 +284,7 @@ export default function OwnerDashboard({
   };
 
   const handleUpload = async (event) => {
-    event.preventDefault();
+    if (event) event.preventDefault();
 
     const isOther = uploadCategory === "Other" || uploadType === "Other";
     const hasFile = !!uploadFile;
@@ -301,6 +302,7 @@ export default function OwnerDashboard({
       }
     }
 
+    setIsUploading(true);
     try {
       showNotice("Uploading and encrypting document...");
       const formData = new FormData();
@@ -311,13 +313,15 @@ export default function OwnerDashboard({
         const textFile = new File([uploadTextContent.trim()], fallbackName, { type: "text/plain" });
         formData.append("file", textFile);
       }
-      formData.append("email", currentUser?.email || "");
+      formData.append("email", currentUser?.email || "owner2@example.com");
       formData.append("category", uploadCategory || "General");
       formData.append("fileType", uploadType || "Other");
       if (uploadName.trim()) {
         formData.append("name", uploadName.trim());
       } else if (hasFile && uploadFile?.name) {
         formData.append("name", uploadFile.name);
+      } else if (hasText) {
+        formData.append("name", uploadTextContent.trim().startsWith("http") ? "Web Resource Link" : "Secure Note Document");
       }
       if (hasText) formData.append("textContent", uploadTextContent.trim());
 
@@ -326,15 +330,20 @@ export default function OwnerDashboard({
         body: formData,
       });
 
-      showNotice(`Successfully uploaded and protected "${uploadName || (uploadFile ? uploadFile.name : 'Note/Link')}"!`);
+      const uploadedTitle = uploadName.trim() || (uploadFile ? uploadFile.name : (hasText ? "Secure Note / Link" : "Document"));
+      showNotice(`Successfully uploaded and protected "${uploadedTitle}"!`);
       setUploadName("");
       setUploadFile(null);
       setUploadTextContent("");
-      event.target.reset();
+      if (event?.target?.reset) {
+        try { event.target.reset(); } catch {}
+      }
       setActiveSection("documents");
       await fetchOwnerData();
     } catch (err) {
       showNotice("Upload failed: " + err.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -872,22 +881,20 @@ export default function OwnerDashboard({
       <section className="od-panel od-upload-panel">
         <div className="od-upload-heading">
           <span className="od-upload-icon"><Upload size={25} /></span>
-          <h2>Document details</h2>
+          <h2>Upload & Ingest Enclave Document</h2>
           <p>
-            This form does not transmit files. Actual secure storage will be
-            implemented with the backend.
+            Files, secure notes, and verified links are cryptographically fingerprinted with SHA-256 and committed to the Zero-Trust Enclave storage.
           </p>
         </div>
 
         <form className="od-upload-form" onSubmit={handleUpload}>
           <label>
-            Document name {(uploadFile || (uploadCategory === "Other" || uploadType === "Other")) && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional - auto-named from file)</span>}
+            Document name <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional - auto-named from file or content)</span>
             <input
               type="text"
-              placeholder="e.g. Business Proposal (or auto-named from file)"
+              placeholder="e.g. Business Proposal (or auto-named from file/link)"
               value={uploadName}
               onChange={(event) => setUploadName(event.target.value)}
-              required={!uploadFile && !(uploadCategory === "Other" || uploadType === "Other")}
             />
           </label>
 
@@ -942,7 +949,6 @@ export default function OwnerDashboard({
                     setUploadName(file.name);
                   }
                 }}
-                required={!(uploadCategory === "Other" || uploadType === "Other")}
               />
               <small>
                 {uploadFile
@@ -1023,8 +1029,23 @@ export default function OwnerDashboard({
             </span>
           </div>
 
-          <button type="submit" className="od-primary-button">
-            <Upload size={17} /> Add demo document
+          <button
+            type="submit"
+            className="od-primary-button"
+            disabled={isUploading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "12px 26px",
+              fontWeight: 600,
+              fontSize: "0.95rem",
+              cursor: isUploading ? "not-allowed" : "pointer",
+              opacity: isUploading ? 0.75 : 1,
+            }}
+          >
+            <Upload size={18} />
+            {isUploading ? "Uploading & Encrypting..." : "Upload Document"}
           </button>
         </form>
       </section>

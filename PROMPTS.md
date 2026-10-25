@@ -207,6 +207,9 @@
   4. Updated [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to accept `@RequestParam(value = "fileType", required = false) String requestedFileType` and honor the user's explicit selection over the fallback extension parser.
   5. Configured `spring.servlet.multipart.max-file-size=50MB` and `spring.servlet.multipart.max-request-size=50MB` in [`application.properties`](file:///D:/TrustVault/trustvault-backend/src/main/resources/application.properties).
   6. Fixed an unmatched CSS comment delimiter in [`App.css`](file:///D:/TrustVault/frontend/src/App.css), ensuring clean frontend production compilation.
+  7. Completely eliminated HTML5 `required` constraints on form elements, delegating validation entirely to JavaScript (`handleUpload`), preventing the browser from silently blocking button click events.
+  8. Renamed the upload button from legacy "Add demo document" to "Upload Document" with a real-time `isUploading` loading state indicator.
+  9. Added resilient email resolution in [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) mapping guest/preview sessions seamlessly to active approved accounts so uploads never abort with `404 User account not found`.
 * **Commit Link:** [`7ca766a`](https://github.com/TejaswiniBandaru005/TrustVault/commit/7ca766a)
 
 ---

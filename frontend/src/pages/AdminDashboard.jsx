@@ -1203,7 +1203,6 @@ function AdminDashboard({
                       placeholder="e.g. Day 08 - Post-Quantum Access Control Audit.pdf (or auto-named from file)"
                       value={uploadTitle}
                       onChange={(e) => setUploadTitle(e.target.value)}
-                      required={!uploadFile && !(uploadCategory === "Other" || uploadType === "Other")}
                     />
                   </div>
 
@@ -1273,7 +1272,6 @@ function AdminDashboard({
                           }
                         }}
                         style={{ width: "100%", color: "var(--text)", fontSize: "0.85rem" }}
-                        required={!(uploadCategory === "Other" || uploadType === "Other")}
                       />
                       {uploadFile && (
                         <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
