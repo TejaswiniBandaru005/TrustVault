@@ -53,7 +53,7 @@ const navigation = [
 ];
 
 function getFileIcon(type) {
-  if (type === "Word") return FileText;
+  if (type === "Word" || type === "Text") return FileText;
   if (type === "Excel") return FileSpreadsheet;
   return File;
 }
@@ -117,7 +117,7 @@ export default function OwnerDashboard({
 
   const normOwnerDoc = (d, perms = permissions) => {
     if (!d) return null;
-    const fileType = d.fileType || d.type || (d.name?.toLowerCase().endsWith(".pdf") ? "PDF" : "PDF");
+    const fileType = d.fileType || d.type || (d.name?.toLowerCase().endsWith(".pdf") ? "PDF" : (d.textContent ? "Text" : "Text"));
     const fileSize = d.fileSize || d.size || (d.fileSizeBytes ? `${(d.fileSizeBytes / 1024).toFixed(1)} KB` : "1.0 MB");
     const updatedAt = d.updatedAt || d.updated || new Date().toISOString();
     const formattedDate = d.updated || (d.updatedAt ? new Date(d.updatedAt).toLocaleString() : new Date().toLocaleString());
@@ -293,7 +293,7 @@ export default function OwnerDashboard({
   const handleUpload = async (event) => {
     if (event) event.preventDefault();
 
-    const isOther = uploadCategory === "Other" || uploadType === "Other";
+    const isOther = uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text";
     const hasFile = !!uploadFile;
     const hasText = !!(uploadTextContent && uploadTextContent.trim());
 
@@ -322,14 +322,16 @@ export default function OwnerDashboard({
       }
       formData.append("email", resolveOwnerEmail());
       formData.append("category", uploadCategory || "General");
-      formData.append("fileType", uploadType || "Other");
-      if (uploadName.trim()) {
-        formData.append("name", uploadName.trim());
-      } else if (hasFile && uploadFile?.name) {
-        formData.append("name", uploadFile.name);
-      } else if (hasText) {
-        formData.append("name", uploadTextContent.trim().startsWith("http") ? "Web Resource Link" : "Secure Note Document");
-      }
+
+      // When "Other" is selected, take the type as "Text"
+      const effectiveFileType = (uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text")
+        ? "Text"
+        : (uploadType || "PDF");
+      formData.append("fileType", effectiveFileType);
+
+      const finalName = uploadName.trim() || (uploadFile ? uploadFile.name : (hasText ? "Text Document" : "Document"));
+      formData.append("name", finalName);
+
       if (hasText) formData.append("textContent", uploadTextContent.trim());
 
       await apiRequest("/api/documents/upload", {
@@ -910,7 +912,13 @@ export default function OwnerDashboard({
               Document category
               <select
                 value={uploadCategory}
-                onChange={(event) => setUploadCategory(event.target.value)}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setUploadCategory(val);
+                  if (val === "Other") {
+                    setUploadType("Text");
+                  }
+                }}
                 style={{
                   backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                   color: theme === "dark" ? "#f8fafc" : "#0f172a",
@@ -929,7 +937,10 @@ export default function OwnerDashboard({
               File type
               <select
                 value={uploadType}
-                onChange={(event) => setUploadType(event.target.value)}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setUploadType(val === "Other" ? "Text" : val);
+                }}
                 style={{
                   backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                   color: theme === "dark" ? "#f8fafc" : "#0f172a",
@@ -938,17 +949,18 @@ export default function OwnerDashboard({
                 <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>PDF</option>
                 <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Word</option>
                 <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Excel</option>
-                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Other</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Text</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Other (Text)</option>
               </select>
             </label>
           </div>
 
           <div className="od-file-picker-group">
             <label className="od-file-picker">
-              <span>Select a file {(uploadCategory === "Other" || uploadType === "Other") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
+              <span>Select a file {(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
               <input
                 type="file"
-                accept={(uploadCategory === "Other" || uploadType === "Other") ? undefined : ".pdf,.doc,.docx,.xls,.xlsx,.txt"}
+                accept={(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") ? undefined : ".pdf,.doc,.docx,.xls,.xlsx,.txt"}
                 onChange={(event) => {
                   const file = event.target.files?.[0] || null;
                   setUploadFile(file);
@@ -960,12 +972,12 @@ export default function OwnerDashboard({
               <small>
                 {uploadFile
                   ? `${uploadFile.name} (${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB)`
-                  : (uploadCategory === "Other" || uploadType === "Other")
-                    ? "Any file format (PDF, images, documents, archives, code, data, etc.)"
+                  : (uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text")
+                    ? "Any file format (PDF, images, documents, archives, code, data, text, etc.)"
                     : "PDF, Word, Excel, or text files"}
               </small>
             </label>
-            {(uploadCategory === "Other" || uploadType === "Other") && uploadFile && (
+            {(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") && uploadFile && (
               <button
                 type="button"
                 onClick={() => setUploadFile(null)}
@@ -985,7 +997,7 @@ export default function OwnerDashboard({
             )}
           </div>
 
-          {(uploadCategory === "Other" || uploadType === "Other") && (
+          {(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") && (
             <div style={{
               margin: "14px 0",
               padding: "16px",

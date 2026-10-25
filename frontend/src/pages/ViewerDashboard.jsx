@@ -98,8 +98,8 @@ export default function ViewerDashboard({
 
   const normViewerDoc = (d) => ({
     ...d,
-    type: d.fileType || d.type || (d.name?.toLowerCase().endsWith(".pdf") ? "PDF" : "Asset"),
-    fileType: d.fileType || d.type || "PDF",
+    type: d.fileType || d.type || (d.name?.toLowerCase().endsWith(".pdf") ? "PDF" : (d.textContent ? "Text" : "Text")),
+    fileType: d.fileType || d.type || (d.textContent ? "Text" : "PDF"),
     size: d.fileSize || d.size || (d.fileSizeBytes ? `${(d.fileSizeBytes / 1024).toFixed(1)} KB` : "1.0 MB"),
     fileSize: d.fileSize || d.size || "1.0 MB",
     owner: d.ownerName || d.owner || d.ownerEmail || "Document Owner",

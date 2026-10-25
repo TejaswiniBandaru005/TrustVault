@@ -192,7 +192,15 @@ public class DocumentController {
                 int dotIdx = originalFilename.lastIndexOf('.');
                 String extension = dotIdx > 0 ? originalFilename.substring(dotIdx) : "";
                 String autoType = deriveFileType(extension, file.getContentType());
-                fileType = (requestedFileType != null && !requestedFileType.isBlank()) ? requestedFileType.trim() : autoType;
+
+                // When category or requestedFileType is Other or Text: take the type as Text
+                if ("Other".equalsIgnoreCase(requestedFileType) || "Other".equalsIgnoreCase(category) || "Text".equalsIgnoreCase(requestedFileType)) {
+                    fileType = "Text";
+                } else if (requestedFileType != null && !requestedFileType.isBlank()) {
+                    fileType = requestedFileType.trim();
+                } else {
+                    fileType = autoType;
+                }
                 contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
                 sizeBytes = file.getSize();
             } else {
@@ -200,7 +208,7 @@ public class DocumentController {
                 fileBytes = textContent.trim().getBytes(StandardCharsets.UTF_8);
                 String fallbackName = (customName != null && !customName.isBlank()) ? customName.trim() : "Text_Document";
                 originalFilename = fallbackName.contains(".") ? fallbackName : fallbackName + ".txt";
-                fileType = (requestedFileType != null && !requestedFileType.isBlank()) ? requestedFileType.trim() : "Other";
+                fileType = "Text";
                 contentType = "text/plain";
                 sizeBytes = fileBytes.length;
             }
@@ -899,7 +907,7 @@ public class DocumentController {
         if (ext.endsWith(".xls") || ext.endsWith(".xlsx") || ext.endsWith(".csv")) return "Excel";
         if (ext.endsWith(".png") || ext.endsWith(".jpg") || ext.endsWith(".jpeg") || ext.endsWith(".webp")) return "Image";
         if (ext.endsWith(".txt") || ext.endsWith(".md") || ext.endsWith(".json")) return "Text";
-        return "Document";
+        return "Text";
     }
 
     private String formatFileSize(long bytes) {

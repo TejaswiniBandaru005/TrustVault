@@ -112,6 +112,16 @@ function App() {
         return hash;
       }
 
+      if (hash === "upload" || hash === "documents" || hash === "permissions") {
+        const rawUser = localStorage.getItem("trustvault_user");
+        const user = rawUser ? JSON.parse(rawUser) : null;
+        return user?.role?.toUpperCase() === "ADMIN" ? "admin" : "owner";
+      }
+
+      if (hash === "reports") {
+        return "admin";
+      }
+
       // 2. If authenticated user exists and had an active dashboard session, resume it
       const rawUser = localStorage.getItem("trustvault_user");
       const user = rawUser ? JSON.parse(rawUser) : null;
@@ -146,6 +156,12 @@ function App() {
       const validPages = ["home", "login", "register", "forgot", "admin", "owner", "viewer", "profile"];
       if (hash && validPages.includes(hash)) {
         setPage(hash);
+      } else if (hash === "upload" || hash === "documents" || hash === "permissions") {
+        const rawUser = localStorage.getItem("trustvault_user");
+        const user = rawUser ? JSON.parse(rawUser) : null;
+        setPage(user?.role?.toUpperCase() === "ADMIN" ? "admin" : "owner");
+      } else if (hash === "reports") {
+        setPage("admin");
       } else if (!hash) {
         setPage("home");
       }

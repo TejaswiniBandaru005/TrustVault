@@ -516,7 +516,12 @@ function AdminDashboard({
       }
       formData.append("email", currentUser?.email || "admin123@gmail.com");
       formData.append("category", uploadCategory || "Technical");
-      formData.append("fileType", uploadType || "Other");
+
+      // When "Other" is chosen, take the type as "Text"
+      const effectiveFileType = (uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text")
+        ? "Text"
+        : (uploadType || "Technical");
+      formData.append("fileType", effectiveFileType);
       if (uploadTitle.trim()) {
         formData.append("name", uploadTitle.trim());
       } else if (hasFile && uploadFile?.name) {
@@ -1215,7 +1220,13 @@ function AdminDashboard({
                       <select
                         className="ad-styled-select"
                         value={uploadCategory}
-                        onChange={(e) => setUploadCategory(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setUploadCategory(val);
+                          if (val === "Other") {
+                            setUploadType("Text");
+                          }
+                        }}
                         style={{
                           backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                           color: theme === "dark" ? "#f8fafc" : "#0f172a",
@@ -1242,7 +1253,10 @@ function AdminDashboard({
                       <select
                         className="ad-styled-select"
                         value={uploadType}
-                        onChange={(e) => setUploadType(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setUploadType(val === "Other" ? "Text" : val);
+                        }}
                         style={{
                           backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                           color: theme === "dark" ? "#f8fafc" : "#0f172a",
@@ -1251,7 +1265,8 @@ function AdminDashboard({
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="PDF">PDF (.pdf)</option>
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Word">Word (.docx)</option>
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Excel">Excel (.xlsx)</option>
-                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Other">Other</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Text">Text (.txt, .md, notes)</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Other">Other (Text)</option>
                       </select>
                     </div>
                   </div>
