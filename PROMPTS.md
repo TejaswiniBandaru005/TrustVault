@@ -207,7 +207,7 @@
   4. Updated [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to accept `@RequestParam(value = "fileType", required = false) String requestedFileType` and honor the user's explicit selection over the fallback extension parser.
   5. Configured `spring.servlet.multipart.max-file-size=50MB` and `spring.servlet.multipart.max-request-size=50MB` in [`application.properties`](file:///D:/TrustVault/trustvault-backend/src/main/resources/application.properties).
   6. Fixed an unmatched CSS comment delimiter in [`App.css`](file:///D:/TrustVault/frontend/src/App.css), ensuring clean frontend production compilation.
-* **Commit Link:** [`06fc428`](https://github.com/TejaswiniBandaru005/TrustVault/commit/06fc428)
+* **Commit Link:** [`7ca766a`](https://github.com/TejaswiniBandaru005/TrustVault/commit/7ca766a)
 
 ---
 
