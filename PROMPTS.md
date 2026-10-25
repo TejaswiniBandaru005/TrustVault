@@ -214,6 +214,28 @@
 
 ---
 
+### Entry 11: Dynamic "Other" Ingestion Mode with Dual Inputs (File Picker + Text Area), Default Type to "Text", and Byte-Accurate Size Calculation
+* **Focus Area:** **USER INTENT RESOLUTION, FLEXIBLE INGESTION & DYNAMIC SIZE ESTIMATION**
+* **Date:** 2026-10-25
+* **What you asked for:**
+  "bro i'm telling u that i want the option as other and when i select on other optionthen it should display an text area along with choose file and it can be an option to select any one of them and after entering some text it should defaulty take the type as text and size based on the text entered"
+* **What the tool produced:**
+  The AI previously changed the dropdown option label to `"Other (Text)"` or `"Text"`, which didn't match the user's explicit preference for an `"Other"` option. Furthermore, when `"Other"` was selected, the dropdown had event handlers that automatically forced `uploadType` to `"Text"` instead of letting the user choose `"Other"`, and size was still reported as a hardcoded `"1.0 MB"` or file-only metric rather than computing UTF-8 byte length from entered text.
+* **What was wrong with it:**
+  - The option in the dropdown was not cleanly named `"Other"`.
+  - Selecting `"Other"` did not seamlessly present both the file chooser and the text area with either/both being optional.
+  - Entering text did not default the document type to `"Text"` with dynamic byte calculation.
+* **What we did instead:**
+  1. Maintained clean `<option value="Other">Other</option>` in both `Document Category` and `File Type` dropdowns across [`OwnerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/OwnerDashboard.jsx) and [`AdminDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/AdminDashboard.jsx).
+  2. Displayed both the file chooser (`Select a file (Optional)`) and the text area (`Write text content or enter a link / URL (Optional)`) whenever `"Other"` is selected.
+  3. Made both inputs individually optional: the user can pick a file, enter text/a link, or do both.
+  4. Implemented real-time text size calculation (`calculateTextSize(text)` and `getTextByteLength(text)`) in [`documentContent.ts`](file:///D:/TrustVault/frontend/src/utils/documentContent.ts) using `Blob` UTF-8 sizing, rendering a live indicator badge showing `✓ Document Type: Text (Defaulted from text entry)` and `✓ Calculated Size: <size> (<bytes> bytes)`.
+  5. Updated `handleUpload` and `handleAdminUpload` to automatically default `effectiveFileType = "Text"` and `effectiveSize = calculateTextSize(...)` whenever text is entered, forwarding `fileSize` in the multipart `FormData`.
+  6. Updated [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to accept `@RequestParam(value = "fileSize", required = false) String requestedFileSize`, defaulting `fileType = "Text"` when `"Other"` or text content is provided, and formatting `fileSize` directly from text bytes if omitted.
+* **Commit Link:** [`bc057b2`](https://github.com/TejaswiniBandaru005/TrustVault/commit/bc057b2)
+
+---
+
 ## 3. Engineering Quality & Automated Test Verification
 
 | Test Suite / Build Stage | Execution Command | Result | Security Coverage |

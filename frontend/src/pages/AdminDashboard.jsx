@@ -38,6 +38,8 @@ import {
   downloadRealDocument,
   openDocumentInNewTab,
   formatFullTimestamp,
+  calculateTextSize,
+  getTextByteLength,
 } from "../utils/documentContent";
 import TrustVaultLogo from "../components/TrustVaultLogo";
 import ThemePalettePicker from "../components/ThemePalettePicker";
@@ -507,26 +509,37 @@ function AdminDashboard({
     setIsUploading(true);
     try {
       const formData = new FormData();
-      if (hasFile) {
-        formData.append("file", uploadFile);
-      } else if (hasText) {
+      let effectiveFileType;
+      let effectiveSize;
+
+      if (hasText && !hasFile) {
+        effectiveFileType = "Text";
+        effectiveSize = calculateTextSize(uploadTextContent.trim());
         const fallbackName = (uploadTitle.trim() || "document_content") + (uploadTitle.includes(".") ? "" : ".txt");
         const textFile = new File([uploadTextContent.trim()], fallbackName, { type: "text/plain" });
         formData.append("file", textFile);
+      } else if (hasFile) {
+        formData.append("file", uploadFile);
+        if (hasText || isOther) {
+          effectiveFileType = "Text";
+        } else {
+          effectiveFileType = uploadType || "PDF";
+        }
+        effectiveSize = hasText
+          ? calculateTextSize(uploadTextContent.trim())
+          : `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB`;
       }
+
       formData.append("email", currentUser?.email || "admin123@gmail.com");
       formData.append("category", uploadCategory || "Technical");
-
-      // When "Other" is chosen, take the type as "Text"
-      const effectiveFileType = (uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text")
-        ? "Text"
-        : (uploadType || "Technical");
-      formData.append("fileType", effectiveFileType);
-      if (uploadTitle.trim()) {
-        formData.append("name", uploadTitle.trim());
-      } else if (hasFile && uploadFile?.name) {
-        formData.append("name", uploadFile.name);
+      formData.append("fileType", effectiveFileType || "Text");
+      if (effectiveSize) {
+        formData.append("fileSize", effectiveSize);
       }
+
+      const finalName = uploadTitle.trim() || (uploadFile ? uploadFile.name : (hasText ? "Text Document" : "Report"));
+      formData.append("name", finalName);
+
       if (hasText) {
         formData.append("textContent", uploadTextContent.trim());
       }
@@ -536,11 +549,13 @@ function AdminDashboard({
         body: formData,
       });
 
-      addNotice(`Document "${uploadTitle.trim() || (uploadFile ? uploadFile.name : 'Note/Link')}" successfully uploaded and cryptographically indexed into the Zero-Trust Enclave!`);
+      addNotice(`Document "${finalName}" (Type: ${effectiveFileType || 'Text'}, Size: ${effectiveSize || 'Calculated'}) successfully uploaded and cryptographically indexed into the Zero-Trust Enclave!`);
       setUploadTitle("");
       setUploadFile(null);
       setUploadTextContent("");
-      event.target.reset();
+      if (event?.target?.reset) {
+        try { event.target.reset(); } catch {}
+      }
       fetchAllData();
       setSection("documents");
     } catch (err) {
@@ -1253,10 +1268,7 @@ function AdminDashboard({
                       <select
                         className="ad-styled-select"
                         value={uploadType}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setUploadType(val === "Other" ? "Text" : val);
-                        }}
+                        onChange={(e) => setUploadType(e.target.value)}
                         style={{
                           backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                           color: theme === "dark" ? "#f8fafc" : "#0f172a",
@@ -1265,8 +1277,7 @@ function AdminDashboard({
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="PDF">PDF (.pdf)</option>
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Word">Word (.docx)</option>
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Excel">Excel (.xlsx)</option>
-                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Text">Text (.txt, .md, notes)</option>
-                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Other">Other (Text)</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Other">Other</option>
                       </select>
                     </div>
                   </div>
@@ -1346,6 +1357,24 @@ function AdminDashboard({
                           boxSizing: "border-box",
                         }}
                       />
+                      {uploadTextContent.trim() && (
+                        <div style={{
+                          marginTop: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 12px",
+                          background: theme === "dark" ? "rgba(16, 185, 129, 0.12)" : "rgba(16, 185, 129, 0.08)",
+                          border: "1px solid rgba(16, 185, 129, 0.3)",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                          color: theme === "dark" ? "#34d399" : "#059669",
+                          fontWeight: 600,
+                        }}>
+                          <span>✓ Document Type: <strong>Text</strong> (Defaulted from text entry)</span>
+                          <span>✓ Calculated Size: <strong>{calculateTextSize(uploadTextContent.trim())}</strong> ({getTextByteLength(uploadTextContent.trim())} bytes)</span>
+                        </div>
+                      )}
                     </div>
                   )}
 

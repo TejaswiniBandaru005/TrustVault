@@ -34,6 +34,8 @@ import {
   openDocumentInNewTab,
   generateDocumentText,
   formatFullTimestamp,
+  calculateTextSize,
+  getTextByteLength,
 } from "../utils/documentContent";
 import { apiRequest } from "../api";
 import TrustVaultLogo from "../components/TrustVaultLogo";
@@ -313,21 +315,34 @@ export default function OwnerDashboard({
     try {
       showNotice("Uploading and encrypting document...");
       const formData = new FormData();
-      if (hasFile) {
-        formData.append("file", uploadFile);
-      } else if (hasText) {
+
+      let effectiveFileType;
+      let effectiveSize;
+
+      if (hasText && !hasFile) {
+        effectiveFileType = "Text";
+        effectiveSize = calculateTextSize(uploadTextContent.trim());
         const fallbackName = (uploadName.trim() || "document_content") + (uploadName.includes(".") ? "" : ".txt");
         const textFile = new File([uploadTextContent.trim()], fallbackName, { type: "text/plain" });
         formData.append("file", textFile);
+      } else if (hasFile) {
+        formData.append("file", uploadFile);
+        if (hasText || isOther) {
+          effectiveFileType = "Text";
+        } else {
+          effectiveFileType = uploadType || "PDF";
+        }
+        effectiveSize = hasText
+          ? calculateTextSize(uploadTextContent.trim())
+          : `${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB`;
       }
+
       formData.append("email", resolveOwnerEmail());
       formData.append("category", uploadCategory || "General");
-
-      // When "Other" is selected, take the type as "Text"
-      const effectiveFileType = (uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text")
-        ? "Text"
-        : (uploadType || "PDF");
-      formData.append("fileType", effectiveFileType);
+      formData.append("fileType", effectiveFileType || "Text");
+      if (effectiveSize) {
+        formData.append("fileSize", effectiveSize);
+      }
 
       const finalName = uploadName.trim() || (uploadFile ? uploadFile.name : (hasText ? "Text Document" : "Document"));
       formData.append("name", finalName);
@@ -339,8 +354,8 @@ export default function OwnerDashboard({
         body: formData,
       });
 
-      const uploadedTitle = uploadName.trim() || (uploadFile ? uploadFile.name : (hasText ? "Secure Note / Link" : "Document"));
-      showNotice(`Successfully uploaded and protected "${uploadedTitle}"!`);
+      const uploadedTitle = finalName;
+      showNotice(`Successfully uploaded and protected "${uploadedTitle}" (Type: ${effectiveFileType || 'Text'}, Size: ${effectiveSize || 'Calculated'})!`);
       setUploadName("");
       setUploadFile(null);
       setUploadTextContent("");
@@ -912,13 +927,7 @@ export default function OwnerDashboard({
               Document category
               <select
                 value={uploadCategory}
-                onChange={(event) => {
-                  const val = event.target.value;
-                  setUploadCategory(val);
-                  if (val === "Other") {
-                    setUploadType("Text");
-                  }
-                }}
+                onChange={(event) => setUploadCategory(event.target.value)}
                 style={{
                   backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                   color: theme === "dark" ? "#f8fafc" : "#0f172a",
@@ -937,30 +946,26 @@ export default function OwnerDashboard({
               File type
               <select
                 value={uploadType}
-                onChange={(event) => {
-                  const val = event.target.value;
-                  setUploadType(val === "Other" ? "Text" : val);
-                }}
+                onChange={(event) => setUploadType(event.target.value)}
                 style={{
                   backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                   color: theme === "dark" ? "#f8fafc" : "#0f172a",
                 }}
               >
-                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>PDF</option>
-                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Word</option>
-                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Excel</option>
-                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Text</option>
-                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }}>Other (Text)</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="PDF">PDF</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Word">Word</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Excel">Excel</option>
+                <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Other">Other</option>
               </select>
             </label>
           </div>
 
           <div className="od-file-picker-group">
             <label className="od-file-picker">
-              <span>Select a file {(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
+              <span>Select a file {(uploadCategory === "Other" || uploadType === "Other") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
               <input
                 type="file"
-                accept={(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") ? undefined : ".pdf,.doc,.docx,.xls,.xlsx,.txt"}
+                accept={(uploadCategory === "Other" || uploadType === "Other") ? undefined : ".pdf,.doc,.docx,.xls,.xlsx,.txt"}
                 onChange={(event) => {
                   const file = event.target.files?.[0] || null;
                   setUploadFile(file);
@@ -972,12 +977,12 @@ export default function OwnerDashboard({
               <small>
                 {uploadFile
                   ? `${uploadFile.name} (${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB)`
-                  : (uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text")
+                  : (uploadCategory === "Other" || uploadType === "Other")
                     ? "Any file format (PDF, images, documents, archives, code, data, text, etc.)"
                     : "PDF, Word, Excel, or text files"}
               </small>
             </label>
-            {(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") && uploadFile && (
+            {(uploadCategory === "Other" || uploadType === "Other") && uploadFile && (
               <button
                 type="button"
                 onClick={() => setUploadFile(null)}
@@ -997,7 +1002,7 @@ export default function OwnerDashboard({
             )}
           </div>
 
-          {(uploadCategory === "Other" || uploadType === "Other" || uploadType === "Text") && (
+          {(uploadCategory === "Other" || uploadType === "Other") && (
             <div style={{
               margin: "14px 0",
               padding: "16px",
@@ -1034,6 +1039,24 @@ export default function OwnerDashboard({
                   boxSizing: "border-box",
                 }}
               />
+              {uploadTextContent.trim() && (
+                <div style={{
+                  marginTop: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 12px",
+                  background: theme === "dark" ? "rgba(16, 185, 129, 0.12)" : "rgba(16, 185, 129, 0.08)",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  color: theme === "dark" ? "#34d399" : "#059669",
+                  fontWeight: 600,
+                }}>
+                  <span>✓ Document Type: <strong>Text</strong> (Defaulted from text entry)</span>
+                  <span>✓ Calculated Size: <strong>{calculateTextSize(uploadTextContent.trim())}</strong> ({getTextByteLength(uploadTextContent.trim())} bytes)</span>
+                </div>
+              )}
             </div>
           )}
 

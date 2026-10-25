@@ -144,6 +144,7 @@ public class DocumentController {
             @RequestParam(value = "category", defaultValue = "General") String category,
             @RequestParam(value = "name", required = false) String customName,
             @RequestParam(value = "fileType", required = false) String requestedFileType,
+            @RequestParam(value = "fileSize", required = false) String requestedFileSize,
             @RequestParam(value = "textContent", required = false) String textContent) {
 
         if (email == null || email.isBlank()) {
@@ -193,8 +194,8 @@ public class DocumentController {
                 String extension = dotIdx > 0 ? originalFilename.substring(dotIdx) : "";
                 String autoType = deriveFileType(extension, file.getContentType());
 
-                // When category or requestedFileType is Other or Text: take the type as Text
-                if ("Other".equalsIgnoreCase(requestedFileType) || "Other".equalsIgnoreCase(category) || "Text".equalsIgnoreCase(requestedFileType)) {
+                // When text is entered or category/requestedFileType is Other or Text: take the type as Text
+                if (hasText || "Other".equalsIgnoreCase(requestedFileType) || "Other".equalsIgnoreCase(category) || "Text".equalsIgnoreCase(requestedFileType)) {
                     fileType = "Text";
                 } else if (requestedFileType != null && !requestedFileType.isBlank()) {
                     fileType = requestedFileType.trim();
@@ -214,7 +215,16 @@ public class DocumentController {
             }
 
             String displayName = (customName != null && !customName.isBlank()) ? customName.trim() : originalFilename;
-            String formattedSize = formatFileSize(sizeBytes);
+            String formattedSize;
+            if (requestedFileSize != null && !requestedFileSize.isBlank()) {
+                formattedSize = requestedFileSize.trim();
+            } else if (hasText && !hasFile) {
+                formattedSize = formatFileSize(textContent.trim().getBytes(StandardCharsets.UTF_8).length);
+            } else if (hasText && ("Other".equalsIgnoreCase(requestedFileType) || "Other".equalsIgnoreCase(category))) {
+                formattedSize = formatFileSize(textContent.trim().getBytes(StandardCharsets.UTF_8).length);
+            } else {
+                formattedSize = formatFileSize(sizeBytes);
+            }
 
             // Compute SHA-256 hash
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

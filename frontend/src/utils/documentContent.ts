@@ -34,6 +34,22 @@ export function formatFullTimestamp(val?: string | number | Date | null): string
   return `${dateStr} · ${timeStr}`;
 }
 
+/**
+ * Calculates human-readable byte size from a text string (UTF-8)
+ */
+export function calculateTextSize(text?: string): string {
+  if (!text) return "0 B";
+  const bytes = new Blob([text]).size;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function getTextByteLength(text?: string): number {
+  if (!text) return 0;
+  return new Blob([text]).size;
+}
+
 export function generateDocumentText(doc?: DocumentLike): string {
   const name = doc?.name || doc?.title || "Confidential_Document.pdf";
   const category = doc?.category || "Enterprise";
