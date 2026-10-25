@@ -19,8 +19,6 @@
   👉 [https://trustvault-blgr.onrender.com/](https://trustvault-blgr.onrender.com/)
 * **Serverless Database (Neon AWS us-east-2):**  
   Connected via pooled PostgreSQL with SSL/TLS (`sslmode=require`).
-* **YouTube Video Walkthrough & Demo:**  
-  👉 [https://youtu.be/Mcad68Vxu5s](https://youtu.be/Mcad68Vxu5s)
 
 ---
 
