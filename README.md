@@ -19,11 +19,7 @@
   👉 [https://trustvault-blgr.onrender.com/](https://trustvault-blgr.onrender.com/)
 * **Serverless Database (Neon AWS us-east-2):**  
   Connected via pooled PostgreSQL with SSL/TLS (`sslmode=require`).
-* **Canva Video Walkthrough & Demo:**  
-  👉 [https://canva.link/tx69ukkcbvswt7m](https://canva.link/tx69ukkcbvswt7m)
-* **Note:
-  The project walkthrough is hosted on Canva because the video exceeded the practical upload limits I encountered on YouTube, and Canva provided a convenient way to showcase the full demonstration.
-
+  
 ---
 
 ## 🔑 Important Notice: Email Delivery & Default OTP Generation
