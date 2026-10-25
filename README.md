@@ -19,6 +19,10 @@
   👉 [https://trustvault-blgr.onrender.com/](https://trustvault-blgr.onrender.com/)
 * **Serverless Database (Neon AWS us-east-2):**  
   Connected via pooled PostgreSQL with SSL/TLS (`sslmode=require`).
+* **Drive Video Walkthrough & Demo:**  
+  👉 [https://drive.google.com/file/d/1Z58RU3GtgX03tgs9UZniI6WDng1vNSuG/view?usp=drive_link](https://drive.google.com/file/d/1Z58RU3GtgX03tgs9UZniI6WDng1vNSuG/view?usp=drive_link)
+* **Note:
+  The project walkthrough is hosted on Canva because the video exceeded the practical upload limits I encountered on YouTube, and Canva provided a convenient way to showcase the full demonstration.
   
 ---
 
