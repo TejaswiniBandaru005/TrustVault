@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.*;
 
 @RestController
@@ -162,6 +163,144 @@ public class AdminController {
     @PostMapping("/restore-user")
     public ResponseEntity<Map<String, String>> restoreUser(@RequestBody Map<String, Object> body) {
         return approveUser(body);
+    }
+
+    /**
+     * Admin Document Access Requests:
+     * Returns all pending document access requests submitted by viewers across the entire enclave.
+     */
+    @GetMapping("/document-requests")
+    public ResponseEntity<List<Map<String, Object>>> getPendingDocumentRequests() {
+        List<DocumentPermission> pending = permissionRepository.findByStatusIgnoreCase("REQUESTED");
+        List<Map<String, Object>> response = new ArrayList<>();
+
+        for (DocumentPermission p : pending) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", p.getId());
+            map.put("permissionId", p.getId());
+            map.put("documentId", p.getDocumentId());
+            map.put("documentName", p.getDocumentName());
+            map.put("viewerEmail", p.getViewerEmail());
+            map.put("viewerName", p.getViewerName() != null && !p.getViewerName().isBlank() ? p.getViewerName() : p.getViewerEmail());
+            map.put("canView", p.isCanView());
+            map.put("canDownload", p.isCanDownload());
+            map.put("status", p.getStatus());
+            map.put("requestedAt", p.getGrantedAt() != null ? p.getGrantedAt().toString() : Instant.now().toString());
+
+            Document doc = documentRepository.findById(p.getDocumentId()).orElse(null);
+            if (doc != null) {
+                map.put("ownerEmail", doc.getOwnerEmail());
+                map.put("ownerName", doc.getOwnerName() != null ? doc.getOwnerName() : doc.getOwnerEmail());
+                map.put("category", doc.getCategory());
+                map.put("fileType", doc.getFileType());
+                map.put("fileSize", doc.getFileSize());
+            } else {
+                map.put("ownerEmail", "Unknown");
+                map.put("ownerName", "Document Owner");
+                map.put("category", "General");
+                map.put("fileType", "PDF");
+                map.put("fileSize", "1.0 MB");
+            }
+
+            response.add(map);
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Admin Approve Document Access Request:
+     * Grants View or View+Download permission directly from the admin dashboard.
+     */
+    @PostMapping("/approve-document-request")
+    public ResponseEntity<Map<String, String>> approveDocumentRequest(@RequestBody Map<String, Object> body) {
+        Long permissionId = body.get("permissionId") != null ? Long.valueOf(body.get("permissionId").toString()) : null;
+        Long documentId = body.get("documentId") != null ? Long.valueOf(body.get("documentId").toString()) : null;
+        String viewerEmail = body.get("viewerEmail") != null ? body.get("viewerEmail").toString().trim().toLowerCase() : null;
+        boolean canView = body.get("canView") == null || Boolean.parseBoolean(body.get("canView").toString());
+        boolean canDownload = body.get("canDownload") != null && Boolean.parseBoolean(body.get("canDownload").toString());
+        String adminEmail = body.get("adminEmail") != null ? body.get("adminEmail").toString().trim().toLowerCase() : "admin123@gmail.com";
+
+        DocumentPermission permission = null;
+        if (permissionId != null) {
+            permission = permissionRepository.findById(permissionId).orElse(null);
+        }
+        if (permission == null && documentId != null && viewerEmail != null) {
+            permission = permissionRepository.findByDocumentIdAndViewerEmailIgnoreCase(documentId, viewerEmail).orElse(null);
+        }
+
+        if (permission == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Document access request not found.");
+        }
+
+        permission.setStatus("GRANTED");
+        permission.setCanView(canView);
+        permission.setCanDownload(canDownload);
+        permission.setGrantedAt(Instant.now());
+        permissionRepository.save(permission);
+
+        Document doc = documentRepository.findById(permission.getDocumentId()).orElse(null);
+        String docName = doc != null ? doc.getName() : permission.getDocumentName();
+
+        auditLogRepository.save(new AuditLog(
+                "ACCESS_GRANTED",
+                adminEmail,
+                "TV-ADM",
+                "ADMIN",
+                "Administrator approved " + (canDownload ? "View + Download" : "View-only") + " access on '" + docName + "' for " + permission.getViewerEmail(),
+                "SUCCESS"
+        ));
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Access on '" + docName + "' granted to " + permission.getViewerEmail() + ".",
+                "status", "GRANTED"
+        ));
+    }
+
+    /**
+     * Admin Reject Document Access Request:
+     * Denies a viewer's document access request.
+     */
+    @PostMapping("/reject-document-request")
+    public ResponseEntity<Map<String, String>> rejectDocumentRequest(@RequestBody Map<String, Object> body) {
+        Long permissionId = body.get("permissionId") != null ? Long.valueOf(body.get("permissionId").toString()) : null;
+        Long documentId = body.get("documentId") != null ? Long.valueOf(body.get("documentId").toString()) : null;
+        String viewerEmail = body.get("viewerEmail") != null ? body.get("viewerEmail").toString().trim().toLowerCase() : null;
+        String adminEmail = body.get("adminEmail") != null ? body.get("adminEmail").toString().trim().toLowerCase() : "admin123@gmail.com";
+
+        DocumentPermission permission = null;
+        if (permissionId != null) {
+            permission = permissionRepository.findById(permissionId).orElse(null);
+        }
+        if (permission == null && documentId != null && viewerEmail != null) {
+            permission = permissionRepository.findByDocumentIdAndViewerEmailIgnoreCase(documentId, viewerEmail).orElse(null);
+        }
+
+        if (permission == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Document access request not found.");
+        }
+
+        permission.setStatus("REJECTED");
+        permission.setCanView(false);
+        permission.setCanDownload(false);
+        permissionRepository.save(permission);
+
+        Document doc = documentRepository.findById(permission.getDocumentId()).orElse(null);
+        String docName = doc != null ? doc.getName() : permission.getDocumentName();
+
+        auditLogRepository.save(new AuditLog(
+                "ACCESS_REJECTED",
+                adminEmail,
+                "TV-ADM",
+                "ADMIN",
+                "Administrator rejected access request on '" + docName + "' for " + permission.getViewerEmail(),
+                "WARNING"
+        ));
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Access request for " + permission.getViewerEmail() + " on '" + docName + "' was rejected.",
+                "status", "REJECTED"
+        ));
     }
 
     @GetMapping("/audit-logs")

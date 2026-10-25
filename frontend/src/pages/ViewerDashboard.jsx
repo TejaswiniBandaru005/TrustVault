@@ -175,12 +175,15 @@ export default function ViewerDashboard({
     }
 
     try {
+      const effectiveEmail = (currentUser?.email && !currentUser.email.includes("demo")) ? currentUser.email : (currentUser?.email || "viewer1@example.com");
+      const effectiveName = currentUser?.fullName || currentUser?.name || effectiveEmail;
+
       await apiRequest("/api/documents/request-access", {
         method: "POST",
         body: JSON.stringify({
           documentId: document.id,
-          viewerEmail: currentUser?.email,
-          viewerName: currentUser?.name || currentUser?.email,
+          viewerEmail: effectiveEmail,
+          viewerName: effectiveName,
         }),
       });
 

@@ -105,6 +105,7 @@ function AdminDashboard({
 
   const [users, setUsers] = useState(starterUsers);
   const [requests, setRequests] = useState(starterRequests);
+  const [documentRequests, setDocumentRequests] = useState([]);
   const [documents, setDocuments] = useState(starterDocuments);
   const [deletedDocuments, setDeletedDocuments] = useState([]);
   const [inspectedOwnerHistory, setInspectedOwnerHistory] = useState(null);
@@ -224,6 +225,14 @@ function AdminDashboard({
         }
       })
       .catch((err) => console.warn("Failed to fetch pending users:", err));
+
+    apiRequest("/api/admin/document-requests")
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setDocumentRequests(data);
+        }
+      })
+      .catch((err) => console.warn("Failed to fetch document requests:", err));
 
     apiRequest("/api/admin/users")
       .then((data) => {
@@ -375,6 +384,54 @@ function AdminDashboard({
       fetchAllData();
     } catch (err) {
       addNotice("Rejection error: " + err.message);
+    }
+  };
+
+  const approveDocumentAccess = async (reqItem, canDownload = false) => {
+    try {
+      await apiRequest("/api/admin/approve-document-request", {
+        method: "POST",
+        body: JSON.stringify({
+          permissionId: reqItem.id || reqItem.permissionId,
+          documentId: reqItem.documentId,
+          viewerEmail: reqItem.viewerEmail,
+          canView: true,
+          canDownload,
+          adminEmail: currentUser?.email || "admin123@gmail.com",
+        }),
+      });
+
+      setDocumentRequests((current) =>
+        current.filter((item) => item.id !== reqItem.id && item.permissionId !== reqItem.permissionId)
+      );
+      addEvent("Document access approved", `${reqItem.viewerEmail} • ${reqItem.documentName} (${canDownload ? 'View + Download' : 'View only'})`, "success");
+      addNotice(`Granted ${canDownload ? 'View + Download' : 'View-only'} access on "${reqItem.documentName}" to ${reqItem.viewerEmail}!`);
+      fetchAllData();
+    } catch (err) {
+      addNotice("Approval failed: " + err.message);
+    }
+  };
+
+  const rejectDocumentAccess = async (reqItem) => {
+    try {
+      await apiRequest("/api/admin/reject-document-request", {
+        method: "POST",
+        body: JSON.stringify({
+          permissionId: reqItem.id || reqItem.permissionId,
+          documentId: reqItem.documentId,
+          viewerEmail: reqItem.viewerEmail,
+          adminEmail: currentUser?.email || "admin123@gmail.com",
+        }),
+      });
+
+      setDocumentRequests((current) =>
+        current.filter((item) => item.id !== reqItem.id && item.permissionId !== reqItem.permissionId)
+      );
+      addEvent("Document access rejected", `${reqItem.viewerEmail} • ${reqItem.documentName}`, "warning");
+      addNotice(`Rejected document access request from ${reqItem.viewerEmail} on "${reqItem.documentName}".`);
+      fetchAllData();
+    } catch (err) {
+      addNotice("Rejection failed: " + err.message);
     }
   };
 
@@ -568,7 +625,7 @@ function AdminDashboard({
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "reports", label: "Daily Reports", icon: CalendarDays, count: 7 },
-    { id: "requests", label: "New Requests", icon: UserCheck, count: requests.length },
+    { id: "requests", label: "New Requests", icon: UserCheck, count: requests.length + documentRequests.length },
     { id: "users", label: "User Details", icon: Users, count: users.length },
     { id: "documents", label: "All Documents", icon: FileText },
     { id: "upload", label: "Upload Document", icon: Upload },
@@ -775,7 +832,7 @@ function AdminDashboard({
             <>
               <div className="ad-stats">
                 <Stat icon={Users} label="Registered Users" value={users.length} note="Viewer and owner accounts" tone="blue" />
-                <Stat icon={Clock3} label="Pending Requests" value={requests.length} note="Require administrator review" tone="amber" />
+                <Stat icon={Clock3} label="Pending Requests" value={requests.length + documentRequests.length} note={`${documentRequests.length} document access · ${requests.length} account`} tone="amber" />
                 <Stat icon={FileText} label="Documents" value={documents.length} note="Across all demo owners" tone="purple" />
                 <Stat icon={ShieldAlert} label="Security Alerts" value={events.filter((event) => event.type === "danger").length} note="Sample alert events" tone="red" />
               </div>
@@ -784,12 +841,21 @@ function AdminDashboard({
                 <section className="ad-panel ad-request-panel">
                   <div className="ad-panel-heading">
                     <div>
-                      <h2>New Registration Requests</h2>
-                      <p>Review requested account roles.</p>
+                      <h2>Pending Access & Registration Requests</h2>
+                      <p>{documentRequests.length} document access · {requests.length} account requests</p>
                     </div>
-                    <button className="ad-link-btn" onClick={() => setSection("requests")}>View all <ArrowUpRight size={14} /></button>
+                    <button className="ad-link-btn" onClick={() => setSection("requests")}>View all ({documentRequests.length + requests.length}) <ArrowUpRight size={14} /></button>
                   </div>
-                  <RequestTable requests={requests.slice(0, 3)} onApprove={approveRequest} onReject={rejectRequest} />
+                  {documentRequests.length > 0 ? (
+                    <DocumentRequestTable
+                      requests={documentRequests.slice(0, 3)}
+                      onApproveView={(req) => approveDocumentAccess(req, false)}
+                      onApproveAll={(req) => approveDocumentAccess(req, true)}
+                      onReject={rejectDocumentAccess}
+                    />
+                  ) : (
+                    <RequestTable requests={requests.slice(0, 3)} onApprove={approveRequest} onReject={rejectRequest} />
+                  )}
                 </section>
 
                 <section className="ad-panel">
@@ -915,16 +981,45 @@ function AdminDashboard({
           )}
 
           {section === "requests" && (
-            <section className="ad-panel">
-              <div className="ad-panel-heading">
-                <div>
-                  <h2>Account Approval Queue</h2>
-                  <p>Only approve requests after checking identity and requested role.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              {/* Viewer Document Access Requests */}
+              <section className="ad-panel">
+                <div className="ad-panel-heading">
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <h2>Viewer Document Access Requests</h2>
+                      <span className="ad-count-pill" style={{
+                        background: documentRequests.length > 0 ? "rgba(59, 130, 246, 0.15)" : undefined,
+                        color: documentRequests.length > 0 ? "var(--primary)" : undefined
+                      }}>
+                        {documentRequests.length} pending
+                      </span>
+                    </div>
+                    <p>Review and grant clearance for protected files requested by viewers across the enclave.</p>
+                  </div>
                 </div>
-                <span className="ad-count-pill">{requests.length} pending</span>
-              </div>
-              <RequestTable requests={requests} onApprove={approveRequest} onReject={rejectRequest} />
-            </section>
+                <DocumentRequestTable
+                  requests={documentRequests}
+                  onApproveView={(req) => approveDocumentAccess(req, false)}
+                  onApproveAll={(req) => approveDocumentAccess(req, true)}
+                  onReject={rejectDocumentAccess}
+                />
+              </section>
+
+              {/* User Account Registration Requests */}
+              <section className="ad-panel">
+                <div className="ad-panel-heading">
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <h2>Account Approval Queue</h2>
+                      <span className="ad-count-pill">{requests.length} pending</span>
+                    </div>
+                    <p>Review and approve newly registered user accounts before they can access the enclave.</p>
+                  </div>
+                </div>
+                <RequestTable requests={requests} onApprove={approveRequest} onReject={rejectRequest} />
+              </section>
+            </div>
           )}
 
           {(section === "users" || section === "viewers" || section === "owners") && (
@@ -1898,6 +1993,59 @@ function Stat({ icon: Icon, label, value, note, tone }) {
       <strong>{value}</strong>
       <small>{note}</small>
     </article>
+  );
+}
+
+function DocumentRequestTable({ requests, onApproveView, onApproveAll, onReject }) {
+  if (!requests.length) return <EmptyState text="No pending document access requests from viewers." />;
+
+  return (
+    <div className="ad-request-list">
+      {requests.map((req) => (
+        <article className="ad-request-row" key={req.id || req.permissionId} style={{ alignItems: "center" }}>
+          <span className="ad-avatar" style={{ background: "rgba(59, 130, 246, 0.15)", color: "var(--primary)" }}>
+            <FileText size={18} />
+          </span>
+          <div className="ad-request-info" style={{ flex: "1 1 240px" }}>
+            <strong style={{ fontSize: "14px" }}>{req.documentName}</strong>
+            <div style={{ display: "flex", gap: "10px", marginTop: "3px", fontSize: "12px", color: "var(--muted)", flexWrap: "wrap" }}>
+              <span>Requester: <strong style={{ color: "var(--text)" }}>{req.viewerName || req.viewerEmail}</strong> ({req.viewerEmail})</span>
+              <span>Owner: <strong style={{ color: "var(--text)" }}>{req.ownerName || req.ownerEmail}</strong></span>
+            </div>
+          </div>
+          <span className="ad-category-tag">{req.category || "General"}</span>
+          <div className="ad-request-date" style={{ whiteSpace: "nowrap" }}>
+            <Clock3 size={13} /> {formatFullTimestamp(req.requestedAt)}
+          </div>
+          <div className="ad-request-actions" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <button
+              className="ad-approve-btn"
+              style={{ fontSize: "12px", padding: "6px 10px" }}
+              title="Grant View-only clearance"
+              onClick={() => onApproveView(req)}
+            >
+              <Eye size={14} /> Approve (View)
+            </button>
+            <button
+              className="ad-approve-btn"
+              style={{ fontSize: "12px", padding: "6px 10px", background: "var(--primary)", color: "#fff", borderColor: "var(--primary)" }}
+              title="Grant View and Download clearance"
+              onClick={() => onApproveAll(req)}
+            >
+              <Download size={14} /> View + Download
+            </button>
+            <button
+              className="ad-reject-btn"
+              style={{ fontSize: "12px", padding: "6px 10px" }}
+              title="Reject request"
+              onClick={() => onReject(req)}
+            >
+              <XCircle size={14} /> Reject
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 

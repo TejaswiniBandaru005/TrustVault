@@ -19,4 +19,8 @@ public interface DocumentPermissionRepository extends JpaRepository<DocumentPerm
     Optional<DocumentPermission> findByDocumentIdAndViewerEmailIgnoreCase(Long documentId, String viewerEmail);
 
     List<DocumentPermission> findByViewerEmailIgnoreCaseAndStatus(String viewerEmail, String status);
+
+    List<DocumentPermission> findByStatusIgnoreCase(String status);
+
+    List<DocumentPermission> findByStatus(String status);
 }
