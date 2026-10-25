@@ -169,6 +169,25 @@
 
 ---
 
+### Entry 9: Temporal Audit Trail Integrity: Full Date and Time Display in Activity and Login History
+* **Focus Area:** **AUTHORIZATION, ACCESS CONTROL & AUDIT TRAIL**
+* **Date:** 2026-10-25
+* **What you asked for:**
+  In history it is showing only the login time but not showing the date, I want both to be displayed.
+* **What the tool produced:**
+  The AI previously mapped audit events using `.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })`, stripping the calendar date completely and only outputting strings like "11:30 AM". In user directory lists, `lastLogin` was also raw or truncated.
+* **What was wrong with it:**
+  - **Audit Forensic Blindspot:** Displaying only the time (e.g. `11:30 AM`) without a date makes temporal forensic auditing impossible. When reviewing security events or suspicious sign-ins from days or weeks earlier, an administrator or auditor cannot determine which calendar day the session took place.
+  - **Repudiation Risk (STRIDE R):** Users or malicious actors could contest the timestamp of an unauthorized login because the UI omitted the calendar date.
+* **What we did instead:**
+  1. Built a centralized `formatFullTimestamp(val)` utility in [`documentContent.ts`](file:///D:/TrustVault/frontend/src/utils/documentContent.ts) ensuring all dates and times are formatted as `MMM dd, yyyy · hh:mm:ss a` (e.g. `Oct 25, 2026 · 11:30:15 AM`).
+  2. Updated the audit logs mapper in [`AdminDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/AdminDashboard.jsx) to replace `toLocaleTimeString` with `formatFullTimestamp(log.timestamp)` across Activity & Security events, real-time live events, and the user directory `LAST LOGIN` cards.
+  3. Standardized the backend timestamp formatters in [`AdminController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/AdminController.java) and [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to format `Instant` timestamps with second-level precision (`MMM dd, yyyy · hh:mm:ss a`).
+  4. Updated timeline rows in [`OwnerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/OwnerDashboard.jsx) and [`ViewerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/ViewerDashboard.jsx) to guarantee full date and time rendering with non-wrapping styling.
+* **Commit Link:** [`Pending Main Push`](https://github.com/TejaswiniBandaru005/TrustVault)
+
+---
+
 ## 3. Engineering Quality & Automated Test Verification
 
 | Test Suite / Build Stage | Execution Command | Result | Security Coverage |

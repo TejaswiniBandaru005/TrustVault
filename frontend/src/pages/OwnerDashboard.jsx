@@ -33,6 +33,7 @@ import {
   downloadRealDocument,
   openDocumentInNewTab,
   generateDocumentText,
+  formatFullTimestamp,
 } from "../utils/documentContent";
 import { apiRequest } from "../api";
 import TrustVaultLogo from "../components/TrustVaultLogo";
@@ -170,7 +171,10 @@ export default function OwnerDashboard({
       setDocuments(Array.isArray(docsData) ? docsData.map((d) => normOwnerDoc(d, validPerms)) : []);
       setDeletedDocuments(Array.isArray(delData) ? delData.map((d) => normOwnerDoc(d, validPerms)) : []);
       setRequests(Array.isArray(reqsData) ? reqsData : []);
-      setHistory(Array.isArray(histData) ? histData : []);
+      setHistory(Array.isArray(histData) ? histData.map((item) => ({
+        ...item,
+        time: formatFullTimestamp(item.time),
+      })) : []);
     } catch (err) {
       console.warn("Real-time owner sync error:", err);
     } finally {

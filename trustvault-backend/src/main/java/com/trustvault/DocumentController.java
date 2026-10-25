@@ -465,7 +465,7 @@ public class DocumentController {
         Map<Long, Document> docMap = new HashMap<>();
         for (Document d : ownerDocs) docMap.put(d.getId(), d);
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm a").withZone(ZoneId.systemDefault());
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a").withZone(ZoneId.systemDefault());
 
         List<Map<String, Object>> response = new ArrayList<>();
         for (DocumentPermission p : pendingPerms) {
@@ -535,7 +535,7 @@ public class DocumentController {
         String normalizedEmail = email != null ? email.trim().toLowerCase() : "";
         List<AuditLog> logs = auditLogRepository.findByUserEmailIgnoreCaseOrderByTimestampDesc(normalizedEmail);
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm a").withZone(ZoneId.systemDefault());
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a").withZone(ZoneId.systemDefault());
         List<Map<String, Object>> response = new ArrayList<>();
         for (AuditLog log : logs) {
             Map<String, Object> map = new LinkedHashMap<>();
@@ -558,7 +558,7 @@ public class DocumentController {
         String normalizedEmail = email != null ? email.trim().toLowerCase() : "";
         List<AuditLog> logs = auditLogRepository.findByUserEmailIgnoreCaseOrderByTimestampDesc(normalizedEmail);
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm a").withZone(ZoneId.systemDefault());
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a").withZone(ZoneId.systemDefault());
         List<Map<String, Object>> response = new ArrayList<>();
         for (AuditLog log : logs) {
             Map<String, Object> map = new LinkedHashMap<>();

@@ -37,6 +37,7 @@ import {
 import {
   downloadRealDocument,
   openDocumentInNewTab,
+  formatFullTimestamp,
 } from "../utils/documentContent";
 import TrustVaultLogo from "../components/TrustVaultLogo";
 import ThemePalettePicker from "../components/ThemePalettePicker";
@@ -140,7 +141,7 @@ function AdminDashboard({
         type,
         action,
         detail,
-        time: new Date().toLocaleString(),
+        time: formatFullTimestamp(new Date()),
       },
       ...current,
     ]);
@@ -230,6 +231,8 @@ function AdminDashboard({
             return {
               ...u,
               role: r === "OWNER" ? "Owner" : r === "ADMIN" ? "Admin" : "Viewer",
+              lastLogin: formatFullTimestamp(u.lastLogin),
+              lastLogout: formatFullTimestamp(u.lastLogout),
             };
           });
           setUsers((current) => {
@@ -239,6 +242,7 @@ function AdminDashboard({
                 merged.push({
                   ...su,
                   userCode: "TV-USR-000" + su.id,
+                  lastLogin: formatFullTimestamp(su.lastLogin),
                   lastLogout: "None",
                 });
               }
@@ -258,7 +262,7 @@ function AdminDashboard({
             type: log.status === "DANGER" ? "danger" : log.status === "WARNING" ? "warning" : "success",
             action: log.action ? log.action.replace("_", " ") : "Action",
             detail: `${log.userEmail || "System"} · ${log.detail || ""}`,
-            time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recent",
+            time: formatFullTimestamp(log.timestamp),
           }));
           setEvents(mappedEvents);
         }

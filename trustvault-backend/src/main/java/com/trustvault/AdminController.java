@@ -21,6 +21,9 @@ public class AdminController {
     private final DocumentRepository documentRepository;
     private final DocumentPermissionRepository permissionRepository;
 
+    private static final java.time.format.DateTimeFormatter TIMESTAMP_FORMATTER =
+            java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a").withZone(java.time.ZoneId.systemDefault());
+
     public AdminController(
             UserRepository userRepository,
             AuditLogRepository auditLogRepository,
@@ -72,8 +75,10 @@ public class AdminController {
             map.put("status", displayStatus);
             map.put("rawStatus", u.getStatus());
             map.put("phone", u.getPhone());
-            map.put("lastLogin", u.getLastLoginAt() != null ? u.getLastLoginAt().toString() : "Never signed in");
-            map.put("lastLogout", u.getLastLogoutAt() != null ? u.getLastLogoutAt().toString() : "None");
+            map.put("lastLogin", u.getLastLoginAt() != null ? TIMESTAMP_FORMATTER.format(u.getLastLoginAt()) : "Never signed in");
+            map.put("lastLoginAt", u.getLastLoginAt() != null ? u.getLastLoginAt().toString() : null);
+            map.put("lastLogout", u.getLastLogoutAt() != null ? TIMESTAMP_FORMATTER.format(u.getLastLogoutAt()) : "None");
+            map.put("lastLogoutAt", u.getLastLogoutAt() != null ? u.getLastLogoutAt().toString() : null);
             // Passwords are strictly omitted for security
             response.add(map);
         }
@@ -204,7 +209,7 @@ public class AdminController {
             pMap.put("canView", p.isCanView());
             pMap.put("canDownload", p.isCanDownload());
             pMap.put("status", p.getStatus());
-            pMap.put("grantedAt", p.getGrantedAt() != null ? p.getGrantedAt().toString() : "");
+            pMap.put("grantedAt", p.getGrantedAt() != null ? TIMESTAMP_FORMATTER.format(p.getGrantedAt()) : "");
             grantedList.add(pMap);
         }
 

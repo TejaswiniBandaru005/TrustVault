@@ -2353,7 +2353,7 @@ button:focus-visible {
 .ad-event-info { flex: 1; min-width: 0; }
 .ad-event-info strong { font-size: 10px; }
 .ad-event-info p { margin: 5px 0 0; color: var(--ad-muted); font-size: 9px; line-height: 1.6; overflow-wrap: anywhere; }
-.ad-event-row time { color: var(--ad-muted); font-size: 9px; text-align: right; }
+.ad-event-row time { color: var(--ad-muted); font-size: 11px; text-align: right; white-space: nowrap; flex-shrink: 0; font-weight: 500; }
 .ad-event-footnote { display: flex; align-items: flex-start; gap: 7px; padding: 12px 0; color: var(--ad-muted); border-top: 1px solid var(--ad-border); font-size: 9px; line-height: 1.6; }
 .ad-table-wrap { width: 100%; overflow-x: auto; }
 .ad-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
@@ -3408,7 +3408,8 @@ button:focus-visible {
 
 .od-timeline-content small {
   color: var(--od-muted);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .od-security-footnote {
@@ -4461,9 +4462,12 @@ button:focus-visible {
 
 .vd-history-row time {
   color: var(--vd-muted);
-  font-size: 10px;
+  font-size: 11px;
   text-align: right;
   line-height: 1.6;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 500;
 }
 
 /* Document preview modal */

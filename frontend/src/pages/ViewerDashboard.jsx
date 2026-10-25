@@ -27,6 +27,7 @@ import {
   downloadRealDocument,
   openDocumentInNewTab,
   generateDocumentText,
+  formatFullTimestamp,
 } from "../utils/documentContent";
 import { apiRequest } from "../api";
 import TrustVaultLogo from "../components/TrustVaultLogo";
@@ -122,7 +123,10 @@ export default function ViewerDashboard({
       ]);
       setAllocatedDocs(Array.isArray(allocatedData) ? allocatedData.map(normViewerDoc) : []);
       setCatalogDocs(Array.isArray(catalogData) ? catalogData.map(normViewerDoc) : []);
-      setHistory(Array.isArray(histData) ? histData : []);
+      setHistory(Array.isArray(histData) ? histData.map((item) => ({
+        ...item,
+        time: formatFullTimestamp(item.time),
+      })) : []);
     } catch (err) {
       console.warn("Real-time viewer sync error:", err);
     } finally {
@@ -476,7 +480,7 @@ export default function ViewerDashboard({
             <span>{item.document}</span>
             <small>{item.detail}</small>
           </div>
-          <time>{item.time}</time>
+          <time style={{ whiteSpace: "nowrap" }}>{formatFullTimestamp(item.time)}</time>
         </div>
       ))}
       {items.length === 0 && (

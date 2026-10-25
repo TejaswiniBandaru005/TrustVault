@@ -17,6 +17,23 @@ export interface DocumentLike {
   textContent?: string;
 }
 
+/**
+ * Formats any ISO string, date object, or timestamp into an exact "MMM dd, yyyy · hh:mm:ss a" display format.
+ * Guarantees that BOTH the date and the time are always presented in history and audit timelines.
+ */
+export function formatFullTimestamp(val?: string | number | Date | null): string {
+  if (!val || val === "Recent" || val === "Never signed in" || val === "None") {
+    return val ? String(val) : "Recent";
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) {
+    return String(val);
+  }
+  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+  const timeStr = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  return `${dateStr} · ${timeStr}`;
+}
+
 export function generateDocumentText(doc?: DocumentLike): string {
   const name = doc?.name || doc?.title || "Confidential_Document.pdf";
   const category = doc?.category || "Enterprise";
