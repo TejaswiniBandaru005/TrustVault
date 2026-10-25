@@ -184,7 +184,7 @@
   2. Updated the audit logs mapper in [`AdminDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/AdminDashboard.jsx) to replace `toLocaleTimeString` with `formatFullTimestamp(log.timestamp)` across Activity & Security events, real-time live events, and the user directory `LAST LOGIN` cards.
   3. Standardized the backend timestamp formatters in [`AdminController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/AdminController.java) and [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to format `Instant` timestamps with second-level precision (`MMM dd, yyyy · hh:mm:ss a`).
   4. Updated timeline rows in [`OwnerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/OwnerDashboard.jsx) and [`ViewerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/ViewerDashboard.jsx) to guarantee full date and time rendering with non-wrapping styling.
-* **Commit Link:** [`Pending Main Push`](https://github.com/TejaswiniBandaru005/TrustVault)
+* **Commit Link:** [`d033063`](https://github.com/TejaswiniBandaru005/TrustVault/commit/d033063)
 
 ---
 
