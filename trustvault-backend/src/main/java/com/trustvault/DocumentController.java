@@ -143,6 +143,7 @@ public class DocumentController {
             @RequestParam("email") String email,
             @RequestParam(value = "category", defaultValue = "General") String category,
             @RequestParam(value = "name", required = false) String customName,
+            @RequestParam(value = "fileType", required = false) String requestedFileType,
             @RequestParam(value = "textContent", required = false) String textContent) {
 
         if (email == null || email.isBlank()) {
@@ -175,7 +176,8 @@ public class DocumentController {
                 originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document";
                 int dotIdx = originalFilename.lastIndexOf('.');
                 String extension = dotIdx > 0 ? originalFilename.substring(dotIdx) : "";
-                fileType = deriveFileType(extension, file.getContentType());
+                String autoType = deriveFileType(extension, file.getContentType());
+                fileType = (requestedFileType != null && !requestedFileType.isBlank()) ? requestedFileType.trim() : autoType;
                 contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
                 sizeBytes = file.getSize();
             } else {
@@ -183,7 +185,7 @@ public class DocumentController {
                 fileBytes = textContent.trim().getBytes(StandardCharsets.UTF_8);
                 String fallbackName = (customName != null && !customName.isBlank()) ? customName.trim() : "Text_Document";
                 originalFilename = fallbackName.contains(".") ? fallbackName : fallbackName + ".txt";
-                fileType = "Other";
+                fileType = (requestedFileType != null && !requestedFileType.isBlank()) ? requestedFileType.trim() : "Other";
                 contentType = "text/plain";
                 sizeBytes = fileBytes.length;
             }

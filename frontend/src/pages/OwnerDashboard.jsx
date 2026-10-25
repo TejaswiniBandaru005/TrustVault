@@ -313,7 +313,12 @@ export default function OwnerDashboard({
       }
       formData.append("email", currentUser?.email || "");
       formData.append("category", uploadCategory || "General");
-      if (uploadName.trim()) formData.append("name", uploadName.trim());
+      formData.append("fileType", uploadType || "Other");
+      if (uploadName.trim()) {
+        formData.append("name", uploadName.trim());
+      } else if (hasFile && uploadFile?.name) {
+        formData.append("name", uploadFile.name);
+      }
       if (hasText) formData.append("textContent", uploadTextContent.trim());
 
       await apiRequest("/api/documents/upload", {
@@ -699,7 +704,7 @@ export default function OwnerDashboard({
             <ViewerEmailAutocomplete
               value={viewerEmail}
               onChange={setViewerEmail}
-              placeholder="Type viewer or owner email (points to registered users)..."
+              placeholder="Type viewer or owner email..."
               required
             />
           </label>
@@ -876,13 +881,13 @@ export default function OwnerDashboard({
 
         <form className="od-upload-form" onSubmit={handleUpload}>
           <label>
-            Document name
+            Document name {(uploadFile || (uploadCategory === "Other" || uploadType === "Other")) && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional - auto-named from file)</span>}
             <input
               type="text"
-              placeholder="e.g. Business Proposal"
+              placeholder="e.g. Business Proposal (or auto-named from file)"
               value={uploadName}
               onChange={(event) => setUploadName(event.target.value)}
-              required
+              required={!uploadFile && !(uploadCategory === "Other" || uploadType === "Other")}
             />
           </label>
 
@@ -929,16 +934,22 @@ export default function OwnerDashboard({
               <span>Select a file {(uploadCategory === "Other" || uploadType === "Other") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
               <input
                 type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
-                onChange={(event) =>
-                  setUploadFile(event.target.files?.[0] || null)
-                }
+                accept={(uploadCategory === "Other" || uploadType === "Other") ? undefined : ".pdf,.doc,.docx,.xls,.xlsx,.txt"}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  setUploadFile(file);
+                  if (file && !uploadName) {
+                    setUploadName(file.name);
+                  }
+                }}
                 required={!(uploadCategory === "Other" || uploadType === "Other")}
               />
               <small>
                 {uploadFile
                   ? `${uploadFile.name} (${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB)`
-                  : "PDF, Word, Excel, or text files"}
+                  : (uploadCategory === "Other" || uploadType === "Other")
+                    ? "Any file format (PDF, images, documents, archives, code, data, etc.)"
+                    : "PDF, Word, Excel, or text files"}
               </small>
             </label>
             {(uploadCategory === "Other" || uploadType === "Other") && uploadFile && (

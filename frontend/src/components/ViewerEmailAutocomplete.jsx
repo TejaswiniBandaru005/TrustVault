@@ -220,7 +220,7 @@ export default function ViewerEmailAutocomplete({
         )}
       </div>
 
-      {/* Quick Select Chips */}
+      {/* Quick Select Chips
       {viewers.length > 0 && !query && (
         <div className="email-autocomplete-chips-tray">
           <span className="email-autocomplete-chips-label">Quick select user:</span>
@@ -253,7 +253,7 @@ export default function ViewerEmailAutocomplete({
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Floating Animated Autocomplete Menu */}
       {isOpen && (

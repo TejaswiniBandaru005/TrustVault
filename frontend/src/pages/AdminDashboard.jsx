@@ -516,8 +516,11 @@ function AdminDashboard({
       }
       formData.append("email", currentUser?.email || "admin123@gmail.com");
       formData.append("category", uploadCategory || "Technical");
+      formData.append("fileType", uploadType || "Other");
       if (uploadTitle.trim()) {
         formData.append("name", uploadTitle.trim());
+      } else if (hasFile && uploadFile?.name) {
+        formData.append("name", uploadFile.name);
       }
       if (hasText) {
         formData.append("textContent", uploadTextContent.trim());
@@ -1191,16 +1194,16 @@ function AdminDashboard({
                 <form className="ad-upload-styled-form" onSubmit={handleAdminUpload}>
                   <div className="ad-form-group">
                     <label className="ad-form-label">
-                      <span>Document / Report Title</span>
+                      <span>Document / Report Title {(uploadFile || (uploadCategory === "Other" || uploadType === "Other")) && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional - auto-named from file)</span>}</span>
                       <span className="ad-form-label-hint">Descriptive identifier</span>
                     </label>
                     <input
                       type="text"
                       className="ad-styled-input"
-                      placeholder="e.g. Day 08 - Post-Quantum Access Control Audit.pdf"
+                      placeholder="e.g. Day 08 - Post-Quantum Access Control Audit.pdf (or auto-named from file)"
                       value={uploadTitle}
                       onChange={(e) => setUploadTitle(e.target.value)}
-                      required
+                      required={!uploadFile && !(uploadCategory === "Other" || uploadType === "Other")}
                     />
                   </div>
 
@@ -1256,8 +1259,8 @@ function AdminDashboard({
 
                   <div className="ad-form-group">
                     <label className="ad-form-label">
-                      <span>Select File or Daily Report (.pdf, .txt, .md, .docx) {(uploadCategory === "Other" || uploadType === "Other") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
-                      <span className="ad-form-label-hint">Max size 25MB</span>
+                      <span>Select File or Document {(uploadCategory === "Other" || uploadType === "Other") ? "(Any format - Optional)" : "(.pdf, .txt, .md, .docx)"}</span>
+                      <span className="ad-form-label-hint">Max size 50MB</span>
                     </label>
                     <div style={{ padding: "18px", background: "var(--bg)", border: "1.5px dashed var(--border)", borderRadius: "14px" }}>
                       <input

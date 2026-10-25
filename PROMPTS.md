@@ -188,6 +188,29 @@
 
 ---
 
+### Entry 10: Universal File Ingestion for "Other" Format Classifications & Multipart Size Scalability
+* **Focus Area:** **SECURE INGESTION, MULTIPART PROTOCOLS & INTEGRITY**
+* **Date:** 2026-10-25
+* **What you asked for:**
+  "i choosen a file and uploading as others but it is not uploading and when i choose it as pdf and upload the document it is taking"
+* **What the tool produced:**
+  The AI previously retained a restrictive `accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"` HTML attribute on the file input in `OwnerDashboard.jsx`. Furthermore, `handleUpload` in `OwnerDashboard.jsx` and `handleAdminUpload` in `AdminDashboard.jsx` never passed `fileType` to the `/api/documents/upload` endpoint, and `DocumentController.java` only derived the file format from a hardcoded extension whitelist. Additionally, Spring Boot default multipart upload limits were set to 1MB/2MB, rejecting larger files, and HTML5 native validation blocked the upload if the user didn't manually type a document name.
+* **What was wrong with it:**
+  - **Extension Whitelist Lockout:** When selecting "Other" to upload arbitrary assets (images, archives, markdown files, datasets), browser native file pickers masked or blocked files that did not match `.pdf,.doc,.docx,...`.
+  - **Missing Parameter Propagation:** `uploadType` ("Other") selected in the dropdown was never transmitted in the multipart `FormData`, preventing the backend from categorizing the document as "Other".
+  - **Silent Client-Side Validation Failure:** The `Document name` input retained `required` without autofilling from `file.name`, causing silent browser submission cancellation.
+  - **Denial of Service via Default Multipart Limits:** Non-PDF uploads exceeding 1MB failed with `MaxUploadSizeExceededException`.
+* **What we did instead:**
+  1. Dynamically removed the `accept` attribute in [`OwnerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/OwnerDashboard.jsx) whenever Category or File Type is set to `"Other"` (`accept={isOther ? undefined : ".pdf,.doc,.docx,.xls,.xlsx,.txt"}`), permitting any file format (images, archives, source code, data files, documents).
+  2. Auto-populated document title/name from the selected file (`if (file && !uploadName) setUploadName(file.name)`), and relaxed the `required` validation constraint when a file or text content is present.
+  3. Appended `formData.append("fileType", uploadType || "Other")` in both [`OwnerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/OwnerDashboard.jsx) and [`AdminDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/AdminDashboard.jsx).
+  4. Updated [`DocumentController.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/DocumentController.java) to accept `@RequestParam(value = "fileType", required = false) String requestedFileType` and honor the user's explicit selection over the fallback extension parser.
+  5. Configured `spring.servlet.multipart.max-file-size=50MB` and `spring.servlet.multipart.max-request-size=50MB` in [`application.properties`](file:///D:/TrustVault/trustvault-backend/src/main/resources/application.properties).
+  6. Fixed an unmatched CSS comment delimiter in [`App.css`](file:///D:/TrustVault/frontend/src/App.css), ensuring clean frontend production compilation.
+* **Commit Link:** [`06fc428`](https://github.com/TejaswiniBandaru005/TrustVault/commit/06fc428)
+
+---
+
 ## 3. Engineering Quality & Automated Test Verification
 
 | Test Suite / Build Stage | Execution Command | Result | Security Coverage |

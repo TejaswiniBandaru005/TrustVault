@@ -219,6 +219,13 @@ TrustVault uses a distributed multi-cloud topology:
   2. **Dual-Input Validation & Non-Repudiation:** The backend strictly verifies that at least one payload exists (`file` or `textContent`), preventing ghost records.
   3. **Safe Rendering & Explicit Link Verification:** In-browser document readers sanitize external URLs with regular expressions (`https?:\/\/[^\s]+`), display secure previews, and enforce `rel="noopener noreferrer"` attributes when opening external links.
 
+### 8.6. Threat T-12: Resource Exhaustion (DoS) & MIME Filter Inconsistency in Multi-Format Ingestion
+* **Threat Description:** In an enclave allowing multi-format ("Other") uploads, an attacker could attempt Denial of Service by transmitting oversized multipart payloads. Furthermore, inconsistent MIME/extension whitelisting on the client vs server creates asymmetric behavior where valid file types are locked out or client validation silently drops submissions.
+* **Mitigations in TrustVault:**
+  1. **Strict Multipart Size Boundary:** Spring Boot configuration enforces `spring.servlet.multipart.max-file-size=50MB` and `spring.servlet.multipart.max-request-size=50MB` in `application.properties`, halting oversized uploads at the servlet container filter layer before memory saturation.
+  2. **Deterministic File-Type Derivation & Propagation:** `DocumentController.java` accepts an explicit user-declared `fileType` parameter (`@RequestParam(value = "fileType", required = false) String requestedFileType`) alongside automated extension-based classification (`deriveFileType`), ensuring consistent indexing, access control, and auditing across arbitrary file formats.
+  3. **Universal Client File Selector & Auto-Naming:** Client file inputs dynamically remove restrictive `accept` constraints in "Other" mode (`accept={isOther ? undefined : ".pdf,.doc,.docx,.xls,.xlsx,.txt"}`) while auto-populating document titles from `file.name`, eliminating client-side validation lockouts.
+
 ---
 
 ## 9. Automated Security Test Suite & Threat Verification
