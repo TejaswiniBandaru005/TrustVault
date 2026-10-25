@@ -148,6 +148,27 @@
 
 ---
 
+### Entry 8: Polymorphic Upload Ingestion: Flexible File & Text/Link Processing for 'Other' Classifications
+* **Focus Area:** **AUTHORIZATION, ACCESS CONTROL & AUDIT TRAIL**
+* **Date:** 2026-10-25
+* **What you asked for:**
+  In both the Owner and Admin dashboards while uploading documents, if "Other" is selected, the system should show both the choose file option and a text area to write text or enter a link/URL. Both should not be compulsory: the user can choose a file, type text/enter a link, or do both.
+* **What the tool produced:**
+  The AI previously enforced strict binary file selection across all forms with `<input type="file" required />`. In the backend `/api/documents/upload` endpoint, if the `file` multipart parameter was missing or empty, the controller immediately threw a 400 Bad Request exception, entirely preventing users from storing rich text notes or reference URLs.
+* **What was wrong with it:**
+  - **Inflexible Ingestion Interface:** Restricting uploads strictly to binary files prohibited authorized owners from ingesting external governance links, security advisories, or text-based compliance memos without first creating an offline file.
+  - **Ghost Record Risk:** Allowing unverified text-only records without physical storage could have created records in the database with missing files, breaking the SHA-256 integrity hashing and download mechanisms.
+* **What we did instead:**
+  1. Updated both [`OwnerDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/OwnerDashboard.jsx) and [`AdminDashboard.jsx`](file:///D:/TrustVault/frontend/src/pages/AdminDashboard.jsx) to dynamically detect when Category or File Type is set to `"Other"` (`isOther = uploadCategory === "Other" || uploadType === "Other"`).
+  2. In "Other" mode, displayed **both** the optional file picker with clear/remove capability and an optional `<textarea>` for text content or links, with contextual guidance informing the user that either or both can be provided.
+  3. Added client and server validation ensuring at least one input is provided when submitting in "Other" mode.
+  4. If only text/link is provided, synthesized a text file (`.txt`) on the fly so it seamlessly flows through the SHA-256 byte digest pipeline, disk storage enclave, and database entity record.
+  5. Added `@Column(columnDefinition = "TEXT") private String textContent;` to [`Document.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/Document.java) and exposed it across `/catalog`, `/viewer`, and `/owner` endpoints.
+  6. Enhanced document preview readers in Admin, Owner, and Viewer consoles to display text content and render validated URLs as clickable external links with `rel="noopener noreferrer"`.
+* **Commit Link:** [`Pending Main Push`](https://github.com/TejaswiniBandaru005/TrustVault)
+
+---
+
 ## 3. Engineering Quality & Automated Test Verification
 
 | Test Suite / Build Stage | Execution Command | Result | Security Coverage |

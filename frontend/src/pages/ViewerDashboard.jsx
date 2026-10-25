@@ -790,6 +790,42 @@ export default function ViewerDashboard({
                   <ShieldCheck size={16} />
                   <span>Verified Access Clearance · Level 2 Restricted</span>
                 </div>
+                {selectedDocument.textContent && (
+                  <div style={{
+                    marginBottom: "14px",
+                    padding: "14px 18px",
+                    background: "rgba(59, 130, 246, 0.08)",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: "12px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--primary)" }}>
+                        Enclave Text Content / Link
+                      </span>
+                      {/https?:\/\/[^\s]+/i.test(selectedDocument.textContent) && (
+                        <a
+                          href={selectedDocument.textContent.match(/https?:\/\/[^\s]+/i)[0]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            fontSize: "12px",
+                            color: "var(--primary)",
+                            textDecoration: "underline",
+                            fontWeight: 600,
+                          }}
+                        >
+                          <ExternalLink size={13} /> Open Link
+                        </a>
+                      )}
+                    </div>
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: "13px", lineHeight: "1.6", color: "var(--text)" }}>
+                      {selectedDocument.textContent}
+                    </div>
+                  </div>
+                )}
                 <pre className="vd-file-content-box">
                   {generateDocumentText(selectedDocument)}
                 </pre>
@@ -811,6 +847,12 @@ export default function ViewerDashboard({
                   </div>
                 </div>
                 <div><span>Access Policy</span><strong>{selectedDocument.accessPolicy || "Level 2 · Authorized View Enclave"}</strong></div>
+                {selectedDocument.textContent && (
+                  <div>
+                    <span>Document Text / Link</span>
+                    <strong style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{selectedDocument.textContent}</strong>
+                  </div>
+                )}
                 <div><span>Last Updated & Ingested</span><strong>{selectedDocument.updated || (selectedDocument.updatedAt ? new Date(selectedDocument.updatedAt).toLocaleString() : new Date().toLocaleString())}</strong></div>
                 <div>
                   <span>Download Authorization</span>

@@ -135,19 +135,24 @@ public class DocumentController {
 
     /**
      * Real Multipart Document Upload: Stores the physical file on server disk with SHA-256 integrity hash.
+     * When "Other" is chosen, accepts an optional file and/or optional text content / link.
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Document> uploadMultipartDocument(
-            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "file", required = false) MultipartFile file,
             @RequestParam("email") String email,
             @RequestParam(value = "category", defaultValue = "General") String category,
-            @RequestParam(value = "name", required = false) String customName) {
+            @RequestParam(value = "name", required = false) String customName,
+            @RequestParam(value = "textContent", required = false) String textContent) {
 
         if (email == null || email.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Owner email is required.");
         }
-        if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please select a valid file to upload.");
+        boolean hasFile = file != null && !file.isEmpty();
+        boolean hasText = textContent != null && !textContent.isBlank();
+
+        if (!hasFile && !hasText) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Please select a file or enter text / a link (or both).");
         }
 
         String normalizedEmail = email.trim().toLowerCase();
@@ -159,20 +164,34 @@ public class DocumentController {
         }
 
         try {
-            String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document";
-            String displayName = (customName != null && !customName.isBlank()) ? customName.trim() : originalFilename;
-            String extension = "";
-            int dotIdx = originalFilename.lastIndexOf('.');
-            if (dotIdx > 0) {
-                extension = originalFilename.substring(dotIdx);
+            byte[] fileBytes;
+            String originalFilename;
+            String fileType;
+            String contentType;
+            long sizeBytes;
+
+            if (hasFile) {
+                fileBytes = file.getBytes();
+                originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document";
+                int dotIdx = originalFilename.lastIndexOf('.');
+                String extension = dotIdx > 0 ? originalFilename.substring(dotIdx) : "";
+                fileType = deriveFileType(extension, file.getContentType());
+                contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+                sizeBytes = file.getSize();
+            } else {
+                // Synthesize a text/plain file from textContent so it has disk storage and SHA-256 checksum
+                fileBytes = textContent.trim().getBytes(StandardCharsets.UTF_8);
+                String fallbackName = (customName != null && !customName.isBlank()) ? customName.trim() : "Text_Document";
+                originalFilename = fallbackName.contains(".") ? fallbackName : fallbackName + ".txt";
+                fileType = "Other";
+                contentType = "text/plain";
+                sizeBytes = fileBytes.length;
             }
 
-            // Derive user-friendly fileType (PDF, Word, Excel, Image, etc.)
-            String fileType = deriveFileType(extension, file.getContentType());
-            String formattedSize = formatFileSize(file.getSize());
+            String displayName = (customName != null && !customName.isBlank()) ? customName.trim() : originalFilename;
+            String formattedSize = formatFileSize(sizeBytes);
 
             // Compute SHA-256 hash
-            byte[] fileBytes = file.getBytes();
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(fileBytes);
             StringBuilder hexString = new StringBuilder();
@@ -196,8 +215,11 @@ public class DocumentController {
             );
             doc.setStoragePath(targetLocation.toString());
             doc.setFileChecksum(checksumSha256);
-            doc.setContentType(file.getContentType() != null ? file.getContentType() : "application/octet-stream");
-            doc.setFileSizeBytes(file.getSize());
+            doc.setContentType(contentType);
+            doc.setFileSizeBytes(sizeBytes);
+            if (hasText) {
+                doc.setTextContent(textContent.trim());
+            }
 
             Document saved = documentRepository.save(doc);
 
@@ -206,7 +228,7 @@ public class DocumentController {
                     normalizedEmail,
                     user.getUserCode(),
                     user.getRole().name(),
-                    "Uploaded file: " + saved.getName() + " (" + formattedSize + ", SHA256: " + checksumSha256.substring(0, 12) + "...)",
+                    "Uploaded " + (hasText && !hasFile ? "text/link" : "file") + ": " + saved.getName() + " (" + formattedSize + ", SHA256: " + checksumSha256.substring(0, 12) + "...)",
                     "SUCCESS"
             ));
 
@@ -243,6 +265,9 @@ public class DocumentController {
         );
         doc.setAccessPolicy("RESTRICTED");
         doc.setContentType("application/pdf");
+        if (request.textContent() != null && !request.textContent().isBlank()) {
+            doc.setTextContent(request.textContent().trim());
+        }
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest((request.name() + normalizedEmail + System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
@@ -653,6 +678,7 @@ public class DocumentController {
                 map.put("fileChecksum", doc.getFileChecksum() != null ? doc.getFileChecksum() : "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab");
                 map.put("accessPolicy", doc.getAccessPolicy() != null ? doc.getAccessPolicy() : "Level 2 · Authorized View Enclave");
                 map.put("contentType", doc.getContentType() != null ? doc.getContentType() : "application/pdf");
+                map.put("textContent", doc.getTextContent() != null ? doc.getTextContent() : "");
                 map.put("access", perm.getStatus());
                 map.put("canDownload", perm.isCanDownload());
                 map.put("canView", perm.isCanView());
@@ -698,6 +724,7 @@ public class DocumentController {
             map.put("fileChecksum", d.getFileChecksum() != null ? d.getFileChecksum() : "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab");
             map.put("accessPolicy", d.getAccessPolicy() != null ? d.getAccessPolicy() : "RESTRICTED");
             map.put("contentType", d.getContentType() != null ? d.getContentType() : "application/pdf");
+            map.put("textContent", d.getTextContent() != null ? d.getTextContent() : "");
 
             DocumentPermission perm = permMap.get(d.getId());
             if (perm != null) {
@@ -947,7 +974,11 @@ public class DocumentController {
         return formatted.isEmpty() ? "Document Owner" : formatted;
     }
 
-    public record DocumentUploadRequest(String name, String category, String fileType, String fileSize, String email) {}
+    public record DocumentUploadRequest(String name, String category, String fileType, String fileSize, String email, String textContent) {
+        public DocumentUploadRequest(String name, String category, String fileType, String fileSize, String email) {
+            this(name, category, fileType, fileSize, email, null);
+        }
+    }
     public record AccessRequestDto(Long documentId, String viewerEmail, String viewerName) {}
     public record GrantAccessDto(Long documentId, String viewerEmail, String viewerName, boolean canView, boolean canDownload, String ownerEmail) {}
     public record RevokeAccessDto(Long documentId, String viewerEmail, String ownerEmail) {}

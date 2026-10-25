@@ -212,6 +212,13 @@ TrustVault uses a distributed multi-cloud topology:
   1. **Dynamic Port Binding in Dockerfile:** Production entrypoint executes `java $JAVA_OPTS -Dserver.port=${PORT:-8080} -jar app.jar`.
   2. **Dedicated Health Endpoint:** Lightweight `/api/health` and `/` endpoints return JSON telemetry without hitting database write locks, enabling fast container boot and keep-alive pinging.
 
+### 8.5. Threat T-11: Arbitrary Content Injection & Unvalidated URL Traversal in Hybrid Ingestion
+* **Threat Description:** When an enclave allows users to upload "Other" document formats (raw text notes, external links, or mixed payloads), attackers may attempt to bypass file integrity checks by submitting text payloads that avoid disk storage, or attempt XSS / malicious URL redirection via uninspected reference links.
+* **Mitigations in TrustVault:**
+  1. **Cryptographic Ingestion Parity:** If text or a link is provided without a physical binary file, TrustVault synthesizes a standard UTF-8 text file (`.txt`), routes it through the identical SHA-256 byte digest pipeline, and commits the file bytes to server disk storage under a UUID filename.
+  2. **Dual-Input Validation & Non-Repudiation:** The backend strictly verifies that at least one payload exists (`file` or `textContent`), preventing ghost records.
+  3. **Safe Rendering & Explicit Link Verification:** In-browser document readers sanitize external URLs with regular expressions (`https?:\/\/[^\s]+`), display secure previews, and enforce `rel="noopener noreferrer"` attributes when opening external links.
+
 ---
 
 ## 9. Automated Security Test Suite & Threat Verification

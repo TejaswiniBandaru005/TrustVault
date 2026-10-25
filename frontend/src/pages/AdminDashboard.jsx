@@ -129,6 +129,8 @@ function AdminDashboard({
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadCategory, setUploadCategory] = useState("Technical");
+  const [uploadType, setUploadType] = useState("PDF");
+  const [uploadTextContent, setUploadTextContent] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   const addEvent = (action, detail, type = "success") => {
@@ -482,19 +484,39 @@ function AdminDashboard({
   const handleAdminUpload = async (event) => {
     event.preventDefault();
 
-    if (!uploadFile) {
-      addNotice("Please select a document or report file to upload.");
-      return;
+    const isOther = uploadCategory === "Other" || uploadType === "Other";
+    const hasFile = !!uploadFile;
+    const hasText = !!(uploadTextContent && uploadTextContent.trim());
+
+    if (isOther) {
+      if (!hasFile && !hasText) {
+        addNotice("Please choose a file or enter text / a link (or both).");
+        return;
+      }
+    } else {
+      if (!hasFile) {
+        addNotice("Please select a document or report file to upload.");
+        return;
+      }
     }
 
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append("file", uploadFile);
+      if (hasFile) {
+        formData.append("file", uploadFile);
+      } else if (hasText) {
+        const fallbackName = (uploadTitle.trim() || "document_content") + (uploadTitle.includes(".") ? "" : ".txt");
+        const textFile = new File([uploadTextContent.trim()], fallbackName, { type: "text/plain" });
+        formData.append("file", textFile);
+      }
       formData.append("email", currentUser?.email || "admin123@gmail.com");
       formData.append("category", uploadCategory || "Technical");
       if (uploadTitle.trim()) {
         formData.append("name", uploadTitle.trim());
+      }
+      if (hasText) {
+        formData.append("textContent", uploadTextContent.trim());
       }
 
       await apiRequest("/api/documents/upload", {
@@ -502,9 +524,10 @@ function AdminDashboard({
         body: formData,
       });
 
-      addNotice(`Document "${uploadTitle.trim() || uploadFile.name}" successfully uploaded and cryptographically indexed into the Zero-Trust Enclave!`);
+      addNotice(`Document "${uploadTitle.trim() || (uploadFile ? uploadFile.name : 'Note/Link')}" successfully uploaded and cryptographically indexed into the Zero-Trust Enclave!`);
       setUploadTitle("");
       setUploadFile(null);
+      setUploadTextContent("");
       event.target.reset();
       fetchAllData();
       setSection("documents");
@@ -1198,32 +1221,38 @@ function AdminDashboard({
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Security">Security</option>
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Compliance">Compliance</option>
                         <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Business">Business</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Finance">Finance</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Legal">Legal</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Personal">Personal</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Other">Other</option>
                       </select>
                     </div>
 
                     <div className="ad-form-group">
                       <label className="ad-form-label">
-                        <span>Security Clearance</span>
-                        <span className="ad-form-label-hint">Access tier</span>
+                        <span>File Type & Format</span>
+                        <span className="ad-form-label-hint">Data format</span>
                       </label>
                       <select
                         className="ad-styled-select"
-                        defaultValue="HIGH"
+                        value={uploadType}
+                        onChange={(e) => setUploadType(e.target.value)}
                         style={{
                           backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
                           color: theme === "dark" ? "#f8fafc" : "#0f172a",
                         }}
                       >
-                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="HIGH">Level 3 · Restricted Enclave</option>
-                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="MEDIUM">Level 2 · Confidential</option>
-                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="PUBLIC">Level 1 · General Workspace</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="PDF">PDF (.pdf)</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Word">Word (.docx)</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Excel">Excel (.xlsx)</option>
+                        <option style={{ backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff", color: theme === "dark" ? "#f8fafc" : "#0f172a" }} value="Other">Other</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="ad-form-group">
                     <label className="ad-form-label">
-                      <span>Select File or Daily Report (.pdf, .txt, .md, .docx)</span>
+                      <span>Select File or Daily Report (.pdf, .txt, .md, .docx) {(uploadCategory === "Other" || uploadType === "Other") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
                       <span className="ad-form-label-hint">Max size 25MB</span>
                     </label>
                     <div style={{ padding: "18px", background: "var(--bg)", border: "1.5px dashed var(--border)", borderRadius: "14px" }}>
@@ -1237,15 +1266,68 @@ function AdminDashboard({
                           }
                         }}
                         style={{ width: "100%", color: "var(--text)", fontSize: "0.85rem" }}
-                        required
+                        required={!(uploadCategory === "Other" || uploadType === "Other")}
                       />
                       {uploadFile && (
-                        <div style={{ marginTop: "10px", fontSize: "0.82rem", color: "var(--primary)", fontWeight: 700 }}>
-                          ✓ Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
+                        <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.82rem", color: "var(--primary)", fontWeight: 700 }}>
+                            ✓ Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
+                          </span>
+                          {(uploadCategory === "Other" || uploadType === "Other") && (
+                            <button
+                              type="button"
+                              onClick={() => setUploadFile(null)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "var(--danger, #ef4444)",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                textDecoration: "underline",
+                              }}
+                            >
+                              ✕ Remove file
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {(uploadCategory === "Other" || uploadType === "Other") && (
+                    <div className="ad-form-group" style={{
+                      padding: "16px",
+                      borderRadius: "14px",
+                      border: "1.5px dashed var(--primary)",
+                      background: theme === "dark" ? "rgba(59, 130, 246, 0.06)" : "rgba(59, 130, 246, 0.04)",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label className="ad-form-label" style={{ margin: 0 }}>
+                          <span>Document Text Content or Link / URL <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span></span>
+                        </label>
+                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "12px", background: "var(--primary)", color: "#fff", fontWeight: 700 }}>
+                          OTHER MODE
+                        </span>
+                      </div>
+                      <p style={{ margin: "0 0 10px", fontSize: "12px", color: "var(--muted)" }}>
+                        You can choose a file above, enter text / link below, or do both. Neither is individually required.
+                      </p>
+                      <textarea
+                        rows={4}
+                        className="ad-styled-input"
+                        placeholder="Enter document text content, secure notes, or paste a link/URL (e.g. https://...)"
+                        value={uploadTextContent}
+                        onChange={(e) => setUploadTextContent(e.target.value)}
+                        style={{
+                          width: "100%",
+                          resize: "vertical",
+                          fontFamily: "inherit",
+                          fontSize: "0.88rem",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </div>
+                  )}
 
                   <div className="ad-auth-summary-card">
                     <div className="ad-auth-summary-title">
@@ -1446,6 +1528,42 @@ function AdminDashboard({
           <Detail label="Size on Disk" value={selectedDocument.size || selectedDocument.fileSize || "1.0 MB"} />
           <Detail label="SHA-256 Fingerprint" value={<IntegrityPill hash={selectedDocument.fileChecksum || "e4b2a1c89012f67a89b0d1e2f3a4b5c678901234567890abcdef1234567890ab"} />} />
           <Detail label="Access Policy" value={selectedDocument.accessPolicy || "Level 1 · Admin Oversight Clearance"} />
+          {selectedDocument.textContent && (
+            <div style={{
+              margin: "12px 0",
+              padding: "12px 14px",
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              borderRadius: "10px",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", color: "var(--primary)" }}>
+                  Document Text Content / Link
+                </span>
+                {/https?:\/\/[^\s]+/i.test(selectedDocument.textContent) && (
+                  <a
+                    href={selectedDocument.textContent.match(/https?:\/\/[^\s]+/i)[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      fontSize: "12px",
+                      color: "var(--primary)",
+                      textDecoration: "underline",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <ExternalLink size={13} /> Open Link
+                  </a>
+                )}
+              </div>
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: "13px", lineHeight: "1.5" }}>
+                {selectedDocument.textContent}
+              </div>
+            </div>
+          )}
           <Detail label="Status" value={selectedDocument.deleted ? "DELETED (In Deleted Enclave)" : "ACTIVE"} />
           <Detail label="Last Updated & Ingested" value={selectedDocument.updated || (selectedDocument.updatedAt ? new Date(selectedDocument.updatedAt).toLocaleString() : new Date().toLocaleString())} />
           {selectedDocument.deletedAt && (

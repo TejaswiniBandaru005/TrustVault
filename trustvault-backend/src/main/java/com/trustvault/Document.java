@@ -68,6 +68,9 @@ public class Document {
     @Column(length = 255)
     private String deletedBy;
 
+    @Column(columnDefinition = "TEXT")
+    private String textContent;
+
     public Document() {
     }
 
@@ -270,5 +273,13 @@ public class Document {
 
     public void setDeletedBy(String deletedBy) {
         this.deletedBy = deletedBy;
+    }
+
+    public String getTextContent() {
+        return textContent;
+    }
+
+    public void setTextContent(String textContent) {
+        this.textContent = textContent;
     }
 }

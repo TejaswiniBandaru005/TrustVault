@@ -14,6 +14,7 @@ export interface DocumentLike {
   size?: string;
   fileChecksum?: string;
   type?: string;
+  textContent?: string;
 }
 
 export function generateDocumentText(doc?: DocumentLike): string {
@@ -25,6 +26,16 @@ export function generateDocumentText(doc?: DocumentLike): string {
   const id = doc?.id || "TV-DOC-" + Math.floor(1000 + Math.random() * 9000);
 
   let specificSections = "";
+
+  if (doc?.textContent && doc.textContent.trim().length > 0) {
+    specificSections += `
+--------------------------------------------------------------------------------
+1. ENCLAVE TEXT CONTENT & REFERENCE METADATA
+--------------------------------------------------------------------------------
+${doc.textContent.trim()}
+
+`;
+  }
 
   const nameLower = name.toLowerCase();
 

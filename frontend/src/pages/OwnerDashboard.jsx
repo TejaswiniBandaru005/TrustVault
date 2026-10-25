@@ -101,6 +101,7 @@ export default function OwnerDashboard({
   const [uploadCategory, setUploadCategory] = useState("Business");
   const [uploadType, setUploadType] = useState("PDF");
   const [uploadFile, setUploadFile] = useState(null);
+  const [uploadTextContent, setUploadTextContent] = useState("");
   const [docViewMode, setDocViewMode] = useState("cards");
   const [viewerEmail, setViewerEmail] = useState("");
   const [permissionDocument, setPermissionDocument] = useState("");
@@ -146,6 +147,7 @@ export default function OwnerDashboard({
       fileChecksum: checksum,
       accessPolicy,
       contentType,
+      textContent: d.textContent || "",
       viewers: activePerms,
       viewersCount: activePerms,
     };
@@ -279,27 +281,46 @@ export default function OwnerDashboard({
   const handleUpload = async (event) => {
     event.preventDefault();
 
-    if (!uploadFile) {
-      showNotice("Please select a file to upload.");
-      return;
+    const isOther = uploadCategory === "Other" || uploadType === "Other";
+    const hasFile = !!uploadFile;
+    const hasText = !!(uploadTextContent && uploadTextContent.trim());
+
+    if (isOther) {
+      if (!hasFile && !hasText) {
+        showNotice("Please choose a file or enter text / a link (or both).");
+        return;
+      }
+    } else {
+      if (!hasFile) {
+        showNotice("Please select a file to upload.");
+        return;
+      }
     }
 
     try {
       showNotice("Uploading and encrypting document...");
       const formData = new FormData();
-      formData.append("file", uploadFile);
+      if (hasFile) {
+        formData.append("file", uploadFile);
+      } else if (hasText) {
+        const fallbackName = (uploadName.trim() || "document_content") + (uploadName.includes(".") ? "" : ".txt");
+        const textFile = new File([uploadTextContent.trim()], fallbackName, { type: "text/plain" });
+        formData.append("file", textFile);
+      }
       formData.append("email", currentUser?.email || "");
       formData.append("category", uploadCategory || "General");
-      if (uploadName) formData.append("name", uploadName.trim());
+      if (uploadName.trim()) formData.append("name", uploadName.trim());
+      if (hasText) formData.append("textContent", uploadTextContent.trim());
 
       await apiRequest("/api/documents/upload", {
         method: "POST",
         body: formData,
       });
 
-      showNotice(`Successfully uploaded and protected "${uploadName || uploadFile.name}"!`);
+      showNotice(`Successfully uploaded and protected "${uploadName || (uploadFile ? uploadFile.name : 'Note/Link')}"!`);
       setUploadName("");
       setUploadFile(null);
+      setUploadTextContent("");
       event.target.reset();
       setActiveSection("documents");
       await fetchOwnerData();
@@ -899,22 +920,82 @@ export default function OwnerDashboard({
             </label>
           </div>
 
-          <label className="od-file-picker">
-            Select a file
-            <input
-              type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
-              onChange={(event) =>
-                setUploadFile(event.target.files?.[0] || null)
-              }
-              required
-            />
-            <small>
-              {uploadFile
-                ? `${uploadFile.name} (${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB)`
-                : "PDF, Word, Excel, or text files"}
-            </small>
-          </label>
+          <div className="od-file-picker-group">
+            <label className="od-file-picker">
+              <span>Select a file {(uploadCategory === "Other" || uploadType === "Other") && <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>}</span>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+                onChange={(event) =>
+                  setUploadFile(event.target.files?.[0] || null)
+                }
+                required={!(uploadCategory === "Other" || uploadType === "Other")}
+              />
+              <small>
+                {uploadFile
+                  ? `${uploadFile.name} (${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB)`
+                  : "PDF, Word, Excel, or text files"}
+              </small>
+            </label>
+            {(uploadCategory === "Other" || uploadType === "Other") && uploadFile && (
+              <button
+                type="button"
+                onClick={() => setUploadFile(null)}
+                style={{
+                  marginTop: "6px",
+                  padding: "4px 10px",
+                  fontSize: "12px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: "var(--danger, #ef4444)",
+                  cursor: "pointer",
+                }}
+              >
+                ✕ Clear chosen file
+              </button>
+            )}
+          </div>
+
+          {(uploadCategory === "Other" || uploadType === "Other") && (
+            <div style={{
+              margin: "14px 0",
+              padding: "16px",
+              borderRadius: "12px",
+              border: "1.5px dashed var(--primary)",
+              background: theme === "dark" ? "rgba(59, 130, 246, 0.06)" : "rgba(59, 130, 246, 0.04)",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <label style={{ margin: 0, fontWeight: 600, color: "var(--text)" }}>
+                  Write text content or enter a link / URL <span style={{ color: "var(--muted)", fontWeight: 400 }}>(Optional)</span>
+                </label>
+                <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "12px", background: "var(--primary)", color: "#fff", fontWeight: 700 }}>
+                  OTHER MODE
+                </span>
+              </div>
+              <p style={{ margin: "0 0 10px", fontSize: "12px", color: "var(--muted)" }}>
+                You can choose a file above, enter text/a link below, or do both. Neither is individually required.
+              </p>
+              <textarea
+                rows={4}
+                placeholder="Enter document text content, secure notes, or paste a link/URL (e.g. https://...)"
+                value={uploadTextContent}
+                onChange={(e) => setUploadTextContent(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
+                  color: theme === "dark" ? "#f8fafc" : "#0f172a",
+                  fontFamily: "inherit",
+                  fontSize: "0.88rem",
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          )}
 
           <div className="od-security-note">
             <LockKeyhole size={18} />
@@ -1386,6 +1467,42 @@ export default function OwnerDashboard({
                   <ShieldCheck size={16} />
                   <span>Document Owner Verified Clearance · Full Permissions</span>
                 </div>
+                {selectedDocument.textContent && (
+                  <div style={{
+                    marginBottom: "14px",
+                    padding: "14px 18px",
+                    background: theme === "dark" ? "rgba(30, 41, 59, 0.8)" : "rgba(241, 245, 249, 0.95)",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: "12px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--primary)" }}>
+                        Enclave Text Content / Link
+                      </span>
+                      {/https?:\/\/[^\s]+/i.test(selectedDocument.textContent) && (
+                        <a
+                          href={selectedDocument.textContent.match(/https?:\/\/[^\s]+/i)[0]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            fontSize: "12px",
+                            color: "var(--primary)",
+                            textDecoration: "underline",
+                            fontWeight: 600,
+                          }}
+                        >
+                          <ExternalLink size={13} /> Open Link
+                        </a>
+                      )}
+                    </div>
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: "13px", lineHeight: "1.6", color: "var(--text)" }}>
+                      {selectedDocument.textContent}
+                    </div>
+                  </div>
+                )}
                 <pre className="vd-file-content-box">
                   {generateDocumentText(selectedDocument)}
                 </pre>
@@ -1407,6 +1524,12 @@ export default function OwnerDashboard({
                   </div>
                 </div>
                 <div><span>Access Policy</span><strong>{selectedDocument.accessPolicy || "Level 2 · Owner Restricted Enclave"}</strong></div>
+                {selectedDocument.textContent && (
+                  <div>
+                    <span>Document Text / Link</span>
+                    <strong style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{selectedDocument.textContent}</strong>
+                  </div>
+                )}
                 <div><span>Last Updated & Ingested</span><strong>{selectedDocument.updated || (selectedDocument.updatedAt ? new Date(selectedDocument.updatedAt).toLocaleString() : new Date().toLocaleString())}</strong></div>
                 <div><span>Permitted Viewers</span><strong>{selectedDocument.viewers ?? (permissions.filter(p => String(p.documentId) === String(selectedDocument.id) && (p.status === "GRANTED" || p.active)).length)} active</strong></div>
                 <div>
