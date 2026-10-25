@@ -155,9 +155,16 @@ export default function OwnerDashboard({
     };
   };
 
+  const resolveOwnerEmail = () => {
+    if (currentUser?.email && !currentUser.email.includes("guest-") && !currentUser.email.includes("trustvault.local")) {
+      return currentUser.email;
+    }
+    return "owner2@example.com";
+  };
+
   const fetchOwnerData = async () => {
-    if (!currentUser?.email) return;
-    const emailParam = encodeURIComponent(currentUser.email);
+    const effectiveEmail = resolveOwnerEmail();
+    const emailParam = encodeURIComponent(effectiveEmail);
 
     try {
       const [docsData, delData, reqsData, permsData, histData] = await Promise.all([
@@ -313,7 +320,7 @@ export default function OwnerDashboard({
         const textFile = new File([uploadTextContent.trim()], fallbackName, { type: "text/plain" });
         formData.append("file", textFile);
       }
-      formData.append("email", currentUser?.email || "owner2@example.com");
+      formData.append("email", resolveOwnerEmail());
       formData.append("category", uploadCategory || "General");
       formData.append("fileType", uploadType || "Other");
       if (uploadName.trim()) {
