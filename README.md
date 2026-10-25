@@ -11,7 +11,7 @@
 
 ---
 
-## 🌐 Live Deployments
+## 🌐 Live Deployments & Demo
 
 * **Web Application (Vercel Global Edge CDN):**  
   👉 [https://frontend-roan-three-7fqlz5ax9a.vercel.app/](https://frontend-roan-three-7fqlz5ax9a.vercel.app/)
@@ -19,6 +19,23 @@
   👉 [https://trustvault-blgr.onrender.com/](https://trustvault-blgr.onrender.com/)
 * **Serverless Database (Neon AWS us-east-2):**  
   Connected via pooled PostgreSQL with SSL/TLS (`sslmode=require`).
+* **YouTube Video Walkthrough & Demo:**  
+  👉 [https://youtu.be/Mcad68Vxu5s](https://youtu.be/Mcad68Vxu5s)
+
+---
+
+## 🔑 Important Notice: Email Delivery & Default OTP Generation
+
+> [!IMPORTANT]
+> **Live Email Dispatch is Bypassed — Default OTP is Auto-Generated:**  
+> - **External Email Delivery is Disabled:** Due to cloud firewall restrictions and SMTP port blocking on free cloud tiers, live emails are **not** sent to external inboxes.  
+> - **Default / Auto-Generated OTP:** For testing and evaluation, TrustVault automatically generates the 6-digit verification code and **pre-fills / displays it directly on the login screen**. You can proceed through 2FA immediately without checking an email inbox.
+
+### Quick Demo & Test Credentials
+* **Administrator:** `admin123@gmail.com` | Password: `admin123` *(Bypasses OTP, logs in directly)*
+* **Document Owner:** `owner2@example.com` | Password: `owner123` *(OTP is auto-generated & pre-filled)*
+* **Authorized Viewer:** `viewer1@example.com` | Password: `viewer123` *(OTP is auto-generated & pre-filled)*  
+*(You can also click the quick role preview cards on the landing page to test all three dashboards).*
 
 ---
 
@@ -31,11 +48,13 @@
 3. **Multi-Role Clearance Controls:**  
    - **Viewer:** Request clearance, browse permitted documents, and open watermarked isolated previews.
    - **Document Owner:** Ingest documents, review access requests, delegate permissions with instant viewer email autocomplete, and manage soft-deletion.
-   - **Administrator:** Platform-wide oversight, user status governance (Approve / Revoke / Restore), global document management, and complete audit log telemetry.
-4. **Instant Revocation Protocol:**  
+   - **Administrator:** Platform-wide oversight, user status governance (Approve / Revoke / Restore), global document management, real-time viewer access request approval, and complete audit log telemetry.
+4. **Universal "Other" Ingestion Mode:**  
+   Supports PDF, Word, Excel, and universal "Other" mode (allowing arbitrary files, secure notes, or URLs with automatic UTF-8 byte size calculation and type defaulting to Text).
+5. **Instant Revocation Protocol:**  
    Revoked accounts are instantly cut off across all endpoints with immediate session termination.
-5. **Tamper-Evident Audit Ledger:**  
-   Every login, document upload, permission delegation, and deletion is recorded in an immutable PostgreSQL audit trail.
+6. **Tamper-Evident Audit Ledger:**  
+   Every login, document upload, permission delegation, and deletion is recorded in an immutable PostgreSQL audit trail with exact calendar dates and local timestamps.
 
 ---
 
