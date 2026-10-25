@@ -233,8 +233,8 @@ function AdminDashboard({
             return {
               ...u,
               role: r === "OWNER" ? "Owner" : r === "ADMIN" ? "Admin" : "Viewer",
-              lastLogin: formatFullTimestamp(u.lastLogin),
-              lastLogout: formatFullTimestamp(u.lastLogout),
+              lastLogin: formatFullTimestamp(u.lastLoginAt || u.lastLogin),
+              lastLogout: formatFullTimestamp(u.lastLogoutAt || u.lastLogout),
             };
           });
           setUsers((current) => {

@@ -555,7 +555,7 @@ public class DocumentController {
             map.put("canDownload", p.isCanDownload());
             map.put("status", p.getStatus());
             map.put("expires", "Continuous");
-            map.put("grantedAt", p.getGrantedAt() != null ? dtf.format(p.getGrantedAt()) : "Active");
+            map.put("grantedAt", p.getGrantedAt() != null ? p.getGrantedAt().toString() : "Active");
             response.add(map);
         }
 
@@ -570,14 +570,13 @@ public class DocumentController {
         String normalizedEmail = email != null ? email.trim().toLowerCase() : "";
         List<AuditLog> logs = auditLogRepository.findByUserEmailIgnoreCaseOrderByTimestampDesc(normalizedEmail);
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a").withZone(ZoneId.systemDefault());
         List<Map<String, Object>> response = new ArrayList<>();
         for (AuditLog log : logs) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("id", log.getId());
             map.put("action", log.getAction().replace("_", " "));
             map.put("document", log.getDetail());
-            map.put("time", dtf.format(log.getTimestamp()));
+            map.put("time", log.getTimestamp() != null ? log.getTimestamp().toString() : Instant.now().toString());
             map.put("user", "You");
             response.add(map);
         }
@@ -593,14 +592,13 @@ public class DocumentController {
         String normalizedEmail = email != null ? email.trim().toLowerCase() : "";
         List<AuditLog> logs = auditLogRepository.findByUserEmailIgnoreCaseOrderByTimestampDesc(normalizedEmail);
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MMM dd, yyyy · hh:mm:ss a").withZone(ZoneId.systemDefault());
         List<Map<String, Object>> response = new ArrayList<>();
         for (AuditLog log : logs) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("id", log.getId());
             map.put("action", log.getAction().replace("_", " "));
             map.put("document", log.getDetail());
-            map.put("time", dtf.format(log.getTimestamp()));
+            map.put("time", log.getTimestamp() != null ? log.getTimestamp().toString() : Instant.now().toString());
             map.put("detail", log.getStatus());
             response.add(map);
         }

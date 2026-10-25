@@ -19,16 +19,61 @@ export interface DocumentLike {
 
 /**
  * Formats any ISO string, date object, or timestamp into an exact "MMM dd, yyyy · hh:mm:ss a" display format.
- * Guarantees that BOTH the date and the time are always presented in history and audit timelines.
+ * Guarantees that BOTH the date and the time are always presented in history and audit timelines,
+ * automatically converting server UTC timestamps into the user's local browser timezone (e.g. Indian Standard Time).
  */
 export function formatFullTimestamp(val?: string | number | Date | null): string {
   if (!val || val === "Recent" || val === "Never signed in" || val === "None") {
     return val ? String(val) : "Recent";
   }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) {
+
+  let d: Date | null = null;
+
+  if (val instanceof Date) {
+    d = val;
+  } else if (typeof val === "number") {
+    // If epoch seconds (< 1e11), convert to milliseconds
+    d = new Date(val < 1e11 ? val * 1000 : val);
+  } else if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === "Recent" || trimmed === "Never signed in" || trimmed === "None") {
+      return trimmed;
+    }
+
+    // 1. Try standard ISO-8601 parsing directly (e.g. "2026-10-25T10:45:00Z")
+    let parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      // If the string has no timezone indicator, server sent it in UTC, so treat as UTC
+      if (!trimmed.includes("Z") && !trimmed.includes("GMT") && !trimmed.includes("UTC") && !/[+-]\d{2}:?\d{2}/.test(trimmed)) {
+        const utcParsed = new Date(trimmed + " UTC");
+        d = !isNaN(utcParsed.getTime()) ? utcParsed : parsed;
+      } else {
+        d = parsed;
+      }
+    } else {
+      // 2. Handle strings with middle dot '·' or extra spaces (e.g. "Oct 25, 2026 · 10:45:00 AM")
+      const cleaned = trimmed.replace(/\s*·\s*/g, " ");
+      parsed = new Date(cleaned);
+      if (!isNaN(parsed.getTime())) {
+        if (!cleaned.includes("Z") && !cleaned.includes("GMT") && !cleaned.includes("UTC") && !/[+-]\d{2}:?\d{2}/.test(cleaned)) {
+          const utcParsed = new Date(cleaned + " UTC");
+          d = !isNaN(utcParsed.getTime()) ? utcParsed : parsed;
+        } else {
+          d = parsed;
+        }
+      } else {
+        const utcParsed = new Date(cleaned + " UTC");
+        if (!isNaN(utcParsed.getTime())) {
+          d = utcParsed;
+        }
+      }
+    }
+  }
+
+  if (!d || isNaN(d.getTime())) {
     return String(val);
   }
+
   const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
   const timeStr = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
   return `${dateStr} · ${timeStr}`;
