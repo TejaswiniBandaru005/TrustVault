@@ -165,7 +165,7 @@
   4. If only text/link is provided, synthesized a text file (`.txt`) on the fly so it seamlessly flows through the SHA-256 byte digest pipeline, disk storage enclave, and database entity record.
   5. Added `@Column(columnDefinition = "TEXT") private String textContent;` to [`Document.java`](file:///D:/TrustVault/trustvault-backend/src/main/java/com/trustvault/Document.java) and exposed it across `/catalog`, `/viewer`, and `/owner` endpoints.
   6. Enhanced document preview readers in Admin, Owner, and Viewer consoles to display text content and render validated URLs as clickable external links with `rel="noopener noreferrer"`.
-* **Commit Link:** [`Pending Main Push`](https://github.com/TejaswiniBandaru005/TrustVault)
+* **Commit Link:** [`7669ccb`](https://github.com/TejaswiniBandaru005/TrustVault/commit/7669ccb)
 
 ---
 
